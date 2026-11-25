@@ -1,16 +1,23 @@
+import { usersForLevel } from './workflow.js'
+
 export const DOCUMENT_STEPS = [
   { id: 'request', label: 'Request initiating documents', before: 'the request can be approved' },
   { id: 'quotation', label: 'Approved quotation', before: 'the quotation can be approved' },
-  { id: 'uploaded_invoice', label: 'Uploaded invoice', before: 'the invoice can be accepted' },
+  { id: 'vendor_invoice', label: "Vendor's invoice", before: 'the invoice can be accepted' },
   { id: 'po_waybill', label: 'Purchase order or waybill', before: 'delivery can be approved' },
-  { id: 'invoice', label: 'Invoice', before: 'payment can be authorised' },
-  { id: 'receipt', label: 'Receipts', before: 'the requisition can be closed' },
+  { id: 'mobilization', label: 'Mobilisation invoice', before: 'payment can be authorised' },
 ]
 
 const UPLOAD_ROLES = ['requester', 'finance', 'management', 'admin']
+const APPROVE_ROLES = ['reviewer', 'approver', 'verifier', 'management', 'admin']
+const APPROVED_REQUEST = new Set(['approved', 'sourcing', 'recommended', 'po_issued', 'closed'])
 
 export function canFileDocuments(user) {
   return UPLOAD_ROLES.includes(user?.role)
+}
+
+export function canApproveDocuments(user) {
+  return APPROVE_ROLES.includes(user?.role)
 }
 
 export function canFileOnProject(user, project) {
@@ -19,9 +26,76 @@ export function canFileOnProject(user, project) {
   return true
 }
 
+export function canCommentOnRequest(user, state, request) {
+  if (!user || !request) return false
+  if (['management', 'finance', 'admin'].includes(user.role)) return true
+  if (user.role === 'requester' && (request.requesterId === user.id || request.department === user.department)) return true
+  if (user.role === 'approver') return true
+  const levels = [...(request.approval?.levels || []), ...(request.quoteApproval?.levels || [])]
+  if (levels.some((level) => usersForLevel(state, level).includes(user.id))) return true
+  return state.verifications.some((item) => item.requestId === request.id && item.assigneeId === user.id)
+}
+
+export function canResolveRequestComments(user, request) {
+  return user?.role === 'requester' && (request?.requesterId === user.id || request?.department === user.department)
+}
+
+export function commentsForRequest(state, requestId) {
+  const rows = []
+  for (const project of state.projects || []) {
+    for (const document of project.documents || []) {
+      if (document.requestId !== requestId) continue
+      for (const comment of document.comments || []) {
+        rows.push({
+          ...comment,
+          documentId: document.id,
+          documentName: document.name,
+          projectId: project.id,
+          description: document.description || '',
+        })
+      }
+    }
+  }
+  return rows.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+}
+
+export function menuComments(state, user) {
+  const rows = []
+  for (const project of state.projects || []) {
+    for (const document of project.documents || []) {
+      const request = state.requests.find((item) => item.id === document.requestId)
+      if (!request || !canCommentOnRequest(user, state, request)) continue
+      for (const comment of document.comments || []) {
+        if (comment.hidden) continue
+        rows.push({
+          ...comment,
+          documentId: document.id,
+          documentName: document.name,
+          projectId: project.id,
+          request,
+          description: document.description || '',
+        })
+      }
+    }
+  }
+  return rows.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+}
+
+export function canMarkMobilizationPaid(user, project) {
+  if (!user || !project) return false
+  if (['finance', 'management', 'admin'].includes(user.role)) return true
+  return canFileOnProject(user, project)
+}
+
 function push(rows, doc) {
   if (!doc?.name || !doc.category) return
   rows.push(doc)
+}
+
+function filedCategory(category) {
+  if (category === 'invoice') return 'mobilization'
+  if (category === 'uploaded_invoice') return 'vendor_invoice'
+  return category
 }
 
 export function documentsForRequest(state, request) {
@@ -38,6 +112,8 @@ export function documentsForRequest(state, request) {
       uploadedBy: request.requesterId,
       uploadedAt: request.createdAt,
       source: 'Request',
+      status: APPROVED_REQUEST.has(request.status) ? 'approved' : 'pending',
+      stored: false,
     })
   }
   for (const quote of state.quotations.filter((item) => item.requestId === request.id && item.attachmentName && ['approved', 'recommended'].includes(item.status))) {
@@ -49,17 +125,21 @@ export function documentsForRequest(state, request) {
       uploadedBy: quote.createdBy,
       uploadedAt: quote.createdAt,
       source: quote.status === 'approved' ? 'Approved quotation' : 'Recommended quotation',
+      status: quote.status === 'approved' ? 'approved' : 'pending',
+      stored: false,
     })
   }
-  for (const invoice of state.invoices.filter((item) => item.requestId === request.id && item.attachmentName && item.status !== 'rejected')) {
+  for (const invoice of state.invoices.filter((item) => item.requestId === request.id && item.attachmentName && item.status !== 'rejected' && item.status !== 'duplicate')) {
     push(rows, {
       id: `uploaded-${invoice.id}`,
-      category: 'uploaded_invoice',
+      category: 'vendor_invoice',
       name: invoice.attachmentName,
       requestId: request.id,
       uploadedBy: invoice.createdBy,
       uploadedAt: invoice.createdAt,
-      source: 'Uploaded invoice',
+      source: "Vendor's invoice",
+      status: ['submitted', 'mismatch'].includes(invoice.status) ? 'pending' : 'approved',
+      stored: false,
     })
   }
   for (const order of state.orders.filter((item) => item.requestId === request.id && item.status !== 'cancelled')) {
@@ -71,56 +151,80 @@ export function documentsForRequest(state, request) {
       uploadedBy: order.issuedBy,
       uploadedAt: order.issuedAt,
       source: 'Purchase order',
+      status: 'approved',
+      stored: false,
     })
   }
-  for (const payment of state.payments) {
-    const invoice = state.invoices.find((item) => item.id === payment.invoiceId)
-    if (invoice?.requestId !== request.id) continue
-    for (const entry of payment.disbursements || []) {
-      if (!entry.receiptName) continue
-      push(rows, {
-        id: `receipt-${entry.id}`,
-        category: 'receipt',
-        name: entry.receiptName,
-        requestId: request.id,
-        uploadedBy: entry.recordedBy,
-        uploadedAt: entry.at,
-        source: 'Receipt',
-      })
-    }
-  }
   for (const file of project?.documents || []) {
-    if (file.requestId && file.requestId !== request.id) continue
-    push(rows, { ...file, source: 'Filed on the project' })
+    if (file.requestId !== request.id) continue
+    const category = filedCategory(file.category)
+    if (!DOCUMENT_STEPS.some((step) => step.id === category)) continue
+    push(rows, {
+      ...file,
+      projectId: project.id,
+      category,
+      description: file.description || '',
+      comments: file.comments || [],
+      source: 'Filed on the request',
+      status: file.status === 'rejected' ? 'rejected' : file.status === 'approved' || (file.category === 'invoice' && !file.status) ? 'approved' : 'pending',
+      stored: true,
+      paymentStatus: category === 'mobilization' ? (file.paymentStatus === 'paid' ? 'paid' : 'pending') : undefined,
+      receiptName: file.receiptName || '',
+      receiptDescription: file.receiptDescription || '',
+    })
+  }
+  for (const invoice of state.invoices.filter((item) => item.requestId === request.id && item.attachmentName && !['rejected', 'duplicate', 'submitted', 'mismatch'].includes(item.status))) {
+    if (rows.some((row) => row.category === 'mobilization' && row.name === invoice.attachmentName)) continue
+    const receipt = state.payments
+      .find((payment) => payment.invoiceId === invoice.id)
+      ?.disbursements?.find((entry) => entry.receiptName)
+    const paid = ['paid', 'partially_paid'].includes(invoice.status)
+    push(rows, {
+      id: `mob-${invoice.id}`,
+      category: 'mobilization',
+      name: invoice.attachmentName,
+      requestId: request.id,
+      uploadedBy: invoice.createdBy,
+      uploadedAt: invoice.createdAt,
+      source: 'Mobilisation invoice',
+      status: 'approved',
+      stored: false,
+      paymentStatus: paid ? 'paid' : 'pending',
+      receiptName: paid && receipt ? receipt.receiptName : '',
+    })
   }
   return rows
+}
+
+export function categorySettled(files) {
+  return files.length > 0 && files.every((file) => file.status === 'approved')
+}
+
+export function stepLock(state, request, stepId) {
+  const index = DOCUMENT_STEPS.findIndex((step) => step.id === stepId)
+  if (index <= 0 || !request) return ''
+  const previous = DOCUMENT_STEPS[index - 1]
+  const files = documentsForRequest(state, request).filter((file) => file.category === previous.id)
+  if (categorySettled(files)) return ''
+  return previous.label
 }
 
 export function missingSteps(state, request, throughStepId) {
   const end = DOCUMENT_STEPS.findIndex((step) => step.id === throughStepId)
   if (end < 0 || !request) return []
-  const present = new Set(documentsForRequest(state, request).map((file) => file.category))
-  return DOCUMENT_STEPS.slice(0, end + 1).filter((step) => !present.has(step.id))
+  const files = documentsForRequest(state, request)
+  return DOCUMENT_STEPS.slice(0, end + 1).filter((step) => !files.some((file) => file.category === step.id && file.status === 'approved'))
 }
 
 export function approvalBlock(state, request, throughStepId) {
   const missing = missingSteps(state, request, throughStepId)
   if (!missing.length) return ''
-  return `${missing.map((step) => step.label).join(', ')} must be on the project before this can be approved.`
+  return `${missing.map((step) => step.label).join(', ')} must be approved on this request before this can be approved.`
 }
 
-export function projectDocumentSpaces(state, projectId) {
-  const project = state.projects.find((item) => item.id === projectId)
-  const requests = state.requests.filter((item) => item.projectId === projectId)
-  const seen = new Set()
-  const grouped = Object.fromEntries(DOCUMENT_STEPS.map((step) => [step.id, []]))
-  const add = (file) => {
-    const key = `${file.category}|${file.requestId || ''}|${file.name}`
-    if (!file.category || seen.has(key)) return
-    seen.add(key)
-    grouped[file.category]?.push(file)
-  }
-  for (const request of requests) documentsForRequest(state, request).forEach(add)
-  for (const file of project?.documents || []) add({ ...file, source: 'Filed on the project' })
-  return DOCUMENT_STEPS.map((step) => ({ ...step, files: grouped[step.id] }))
+export function mobilizationCloseBlock(state, request) {
+  const paid = documentsForRequest(state, request).filter((file) => file.category === 'mobilization' && file.status === 'approved' && file.paymentStatus === 'paid')
+  if (paid.some((file) => !file.receiptName)) return 'Upload a receipt beside each mobilisation invoice that is marked paid.'
+  if (!paid.length) return 'Mark a mobilisation invoice paid and upload its receipt before this requisition can be closed.'
+  return ''
 }

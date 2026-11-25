@@ -12,9 +12,12 @@ const paths = {
   admin: 'M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM5 19.5a7 7 0 0 1 14 0',
   audit: 'M8 4h8v16H8zM10 8h4M10 12h4M10 16h2',
   bell: 'M6 16h12l-1.2-2.2V10a4.8 4.8 0 0 0-9.6 0v3.8zM10 16a2 2 0 0 0 4 0',
+  comment: 'M5 6h14v9H8l-3 3z',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM16.5 16.5L21 21',
   menu: 'M4 7h16M4 12h16M4 17h16',
   close: 'M6 6l12 12M18 6L6 18',
+  lock: 'M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9H6z',
+  chevron: 'M6 9l6 6 6-6',
   download: 'M12 4v10M8 10l4 4 4-4M5 19h14',
 }
 

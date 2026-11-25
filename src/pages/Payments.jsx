@@ -63,11 +63,11 @@ export function Payments() {
                     return (
                       <tr key={invoice.id}>
                         <td><input type="checkbox" checked={Boolean(picked[invoice.id])} onChange={() => toggle(invoice)} aria-label={`Include ${invoice.reference}`} /></td>
-                        <td><a href={`#/invoices/${invoice.id}`}>{invoice.reference}</a></td>
-                        <td>{supplierById(state, invoice.supplierId)?.name}</td>
-                        <td>{formatDate(invoice.dueDate)}</td>
-                        <td className="num">{money(open)}</td>
-                        <td>{picked[invoice.id] ? <input type="number" min="1" max={open} value={picked[invoice.id]} onChange={(event) => setPicked({ ...picked, [invoice.id]: event.target.value })} aria-label="Amount" /> : null}</td>
+                        <td data-label="Invoice"><a href={`#/invoices/${invoice.id}`}>{invoice.reference}</a></td>
+                        <td data-label="Supplier">{supplierById(state, invoice.supplierId)?.name}</td>
+                        <td data-label="Due">{formatDate(invoice.dueDate)}</td>
+                        <td className="num" data-label="Open">{money(open)}</td>
+                        <td data-label="Schedule">{picked[invoice.id] ? <input type="number" min="1" max={open} value={picked[invoice.id]} onChange={(event) => setPicked({ ...picked, [invoice.id]: event.target.value })} aria-label="Amount" /> : null}</td>
                       </tr>
                     )
                   })}
@@ -126,10 +126,10 @@ function ScheduleDetail({ schedule }) {
               const invoice = state.invoices.find((item) => item.id === line.invoiceId)
               return (
                 <tr key={line.invoiceId}>
-                  <td><a href={`#/invoices/${invoice?.id}`}>{invoice?.reference}</a></td>
-                  <td>{supplierById(state, invoice?.supplierId)?.name}</td>
-                  <td>{formatDate(invoice?.dueDate)}</td>
-                  <td className="num">{money(line.amount)}</td>
+                  <td data-label="Invoice"><a href={`#/invoices/${invoice?.id}`}>{invoice?.reference}</a></td>
+                  <td data-label="Supplier">{supplierById(state, invoice?.supplierId)?.name}</td>
+                  <td data-label="Due">{formatDate(invoice?.dueDate)}</td>
+                  <td className="num" data-label="Scheduled">{money(line.amount)}</td>
                 </tr>
               )
             })}
@@ -191,11 +191,11 @@ function PaymentDetail({ payment }) {
             <tbody>
               {payment.disbursements.map((item) => (
                 <tr key={item.id}>
-                  <td>{formatDate(item.date)}</td>
-                  <td>{item.reference}</td>
-                  <td>{item.receiptName}</td>
-                  <td>{personName(state, item.recordedBy)}</td>
-                  <td className="num">{money(item.amount)}</td>
+                  <td data-label="Date">{formatDate(item.date)}</td>
+                  <td data-label="Reference">{item.reference}</td>
+                  <td data-label="Receipt">{item.receiptName}</td>
+                  <td data-label="By">{personName(state, item.recordedBy)}</td>
+                  <td className="num" data-label="Amount">{money(item.amount)}</td>
                 </tr>
               ))}
             </tbody>

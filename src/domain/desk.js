@@ -53,10 +53,17 @@ const NAV = {
   ],
 }
 
+function withComments(items) {
+  const comments = { href: '#/comments', label: 'Comments', icon: 'comment', badge: 'comments' }
+  const index = items.findIndex((item) => item.href === '#/notifications')
+  if (index < 0) return [comments, ...items]
+  return [...items.slice(0, index + 1), comments, ...items.slice(index + 1)]
+}
+
 export function navFor(user) {
   const desk = deskOf(user)
   const items = desk === 'admin' ? [...NAV.executive, { href: '#/admin', label: 'Users and roles', icon: 'admin' }] : NAV[desk] || NAV.department
-  return items
+  return withComments(items)
 }
 
 export function reportKinds(user) {

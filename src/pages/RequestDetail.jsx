@@ -7,6 +7,7 @@ import {
   personName,
   projectById,
   quotesFor,
+  requestFigures,
   supplierById,
 } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
@@ -18,7 +19,7 @@ import {
   userMayDecide,
 } from '../domain/workflow.js'
 import { fileSize, formatWhen, money } from '../lib/format.js'
-import { StepDocuments } from '../components/Documents.jsx'
+import { CostFigures, RequestComments, StepDocuments } from '../components/Documents.jsx'
 import { approvalBlock, canFileDocuments } from '../domain/documents.js'
 import { Chain, DecisionForm, Empty, Field, Notice, PageHead, StatusBadge, Timeline } from '../components/ui.jsx'
 
@@ -49,6 +50,8 @@ export function RequestDetail({ id }) {
           <a className="btn btn-primary" href={`#/requests/${request.id}/edit`}>Edit</a>
         ) : null}
       </PageHead>
+      <CostFigures figures={requestFigures(state, request)} />
+      <RequestComments request={request} />
       <Chain links={[
         { href: `#/requests/${request.id}`, label: request.number },
         quotes.find((quote) => quote.status === 'approved' || quote.recommended) ? { href: `#/quotations`, label: quotes.find((quote) => quote.status === 'approved' || quote.status === 'recommended')?.number } : null,
@@ -79,9 +82,9 @@ export function RequestDetail({ id }) {
               <tbody>
                 {request.items.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.description}</td>
-                    <td>{item.qty} {item.unit}</td>
-                    <td className="num">{money(item.qty * item.unitCost)}</td>
+                    <td data-label="Description">{item.description}</td>
+                    <td data-label="Qty">{item.qty} {item.unit}</td>
+                    <td className="num" data-label="Estimate">{money(item.qty * item.unitCost)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -243,7 +246,7 @@ function QuoteBoard({ request, quotes, canSource, user, state, store, quoteLevel
               <Field label="Quotation file" className="span-2">
                 <input type="file" onChange={(event) => setForm({ ...form, attachmentName: event.target.files?.[0]?.name || '' })} />
               </Field>
-            ) : <p className="hint span-2">The quotation file is added on the project by the HOD, accounts, the MD or the site admin.</p>}
+            ) : <p className="hint span-2">The quotation file is added on the request by the HOD, accounts, the MD or the site admin.</p>}
           </div>
           <button className="btn btn-teal" type="submit">Add quotation</button>
         </form>

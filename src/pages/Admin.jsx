@@ -41,11 +41,11 @@ function People() {
           <tbody>
             {state.users.map((person) => (
               <tr key={person.id}>
-                <td><strong>{person.name}</strong><span className="muted">{person.email}</span></td>
-                <td><Badge tone="purple">{roleLabel(person.role)}</Badge></td>
-                <td>{person.department}</td>
-                <td>{person.delegateActive ? personName(state, person.delegateId) : '—'}</td>
-                <td>{person.active ? 'Active' : 'Inactive'}</td>
+                <td data-label="Name"><strong>{person.name}</strong><span className="muted">{person.email}</span></td>
+                <td data-label="Role"><Badge tone="purple">{roleLabel(person.role)}</Badge></td>
+                <td data-label="Department">{person.department}</td>
+                <td data-label="Delegate">{person.delegateActive ? personName(state, person.delegateId) : '—'}</td>
+                <td data-label="Status">{person.active ? 'Active' : 'Inactive'}</td>
                 <td><button className="btn btn-ghost btn-small" type="button" onClick={() => setEditing(person)}>Edit</button></td>
               </tr>
             ))}

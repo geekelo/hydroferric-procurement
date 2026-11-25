@@ -52,15 +52,15 @@ export function Orders() {
             <tbody>
               {rows.map((order) => (
                 <tr key={order.id}>
-                  <td><a className="link" href={`#/orders/${order.id}`}>{order.number}</a><span className="muted">{formatDate(order.issuedAt)}</span></td>
-                  <td>{supplierById(state, order.supplierId)?.name}</td>
-                  <td>{projectById(state, order.projectId)?.code}</td>
-                  <td>
+                  <td data-label="Order"><a className="link" href={`#/orders/${order.id}`}>{order.number}</a><span className="muted">{formatDate(order.issuedAt)}</span></td>
+                  <td data-label="Supplier">{supplierById(state, order.supplierId)?.name}</td>
+                  <td data-label="Project">{projectById(state, order.projectId)?.code}</td>
+                  <td data-label="Status">
                     <StatusBadge map={PO_STATUS} status={order.status} />
                     {order.revisions.length ? <Badge tone="teal">Revised</Badge> : null}
                     {order.increasePending ? <Badge tone="warn">Increase pending</Badge> : null}
                   </td>
-                  <td className="num">{money(order.total)}</td>
+                  <td className="num" data-label="Total">{money(order.total)}</td>
                 </tr>
               ))}
             </tbody>

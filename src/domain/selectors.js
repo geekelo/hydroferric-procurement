@@ -74,6 +74,33 @@ export function paymentsForInvoice(state, invoiceId) {
   return state.payments.filter((payment) => payment.invoiceId === invoiceId)
 }
 
+const APPROVED_REQUEST = new Set(['approved', 'sourcing', 'recommended', 'po_issued', 'closed'])
+
+export function requestFigures(state, request) {
+  if (!request) return { approved: 0, committed: 0, actual: 0, toBalance: 0, extra: 0, total: 0 }
+  const orders = state.orders.filter((order) => order.requestId === request.id && order.status !== 'cancelled')
+  const committed = orders.reduce((sum, order) => sum + Number(order.total), 0)
+  const approvedQuote = state.quotations.find((quote) => quote.requestId === request.id && quote.status === 'approved')
+  const approved = approvedQuote
+    ? Number(approvedQuote.amount)
+    : APPROVED_REQUEST.has(request.status) ? requestTotal(request) : 0
+  const invoiceIds = new Set(
+    state.invoices.filter((invoice) => invoice.requestId === request.id).map((invoice) => invoice.id),
+  )
+  const actual = state.payments
+    .filter((payment) => invoiceIds.has(payment.invoiceId))
+    .reduce((sum, payment) => sum + disbursed(payment), 0)
+  const extra = Math.max(0, actual - committed)
+  return {
+    approved,
+    committed,
+    actual,
+    toBalance: approved - committed,
+    extra,
+    total: committed + extra,
+  }
+}
+
 export function projectFigures(state, projectId) {
   const project = projectById(state, projectId)
   const orders = state.orders.filter((order) => order.projectId === projectId && order.status !== 'cancelled')
@@ -81,12 +108,18 @@ export function projectFigures(state, projectId) {
   const actual = state.payments
     .filter((payment) => payment.projectId === projectId)
     .reduce((sum, payment) => sum + disbursed(payment), 0)
+  const approved = project?.budget || 0
+  const extra = Math.max(0, actual - committed)
   return {
-    budget: project?.budget || 0,
+    budget: approved,
+    approved,
     committed,
     actual,
     outstanding: Math.max(0, committed - actual),
-    available: (project?.budget || 0) - committed,
+    available: approved - committed,
+    toBalance: approved - committed,
+    extra,
+    total: committed + extra,
   }
 }
 
@@ -291,6 +324,7 @@ export function departmentRollup(state) {
       open,
       committed: figures.reduce((sum, item) => sum + item.committed, 0),
       actual: figures.reduce((sum, item) => sum + item.actual, 0),
+      total: figures.reduce((sum, item) => sum + item.total, 0),
     }
   })
 }

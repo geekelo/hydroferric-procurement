@@ -876,14 +876,52 @@ export function createSeed() {
   for (const invoice of invoices) {
     if (['rejected', 'duplicate'].includes(invoice.status) || !invoice.attachmentName) continue
     const project = projects.find((item) => item.id === invoice.projectId)
+    const paid = ['paid', 'partially_paid'].includes(invoice.status)
+    const receipt = payments.find((payment) => payment.invoiceId === invoice.id)?.disbursements?.find((entry) => entry.receiptName)
+    const comments = []
+    if (invoice.id === 'inv-closed') {
+      comments.push({
+        id: 'cmt-closed',
+        text: 'Confirm the drums match the delivery note before this is treated as fully paid.',
+        authorId: 'u-yusuf',
+        at: '2026-10-21T09:00:00.000Z',
+        resolved: true,
+        resolvedBy: 'u-ada',
+        resolvedAt: '2026-10-21T15:00:00.000Z',
+        resolutionNote: 'Bay count agrees with the delivery note.',
+        hidden: false,
+      })
+    }
+    if (invoice.id === 'inv-pay') {
+      comments.push({
+        id: 'cmt-pay',
+        text: 'This invoice is overdue. Confirm the site can still accept the cable.',
+        authorId: 'u-tunde',
+        at: '2026-11-18T10:00:00.000Z',
+        resolved: false,
+        hidden: false,
+        resolutionNote: '',
+      })
+    }
     project?.documents.push({
       id: `doc-inv-${invoice.id}`,
-      category: 'invoice',
+      category: 'mobilization',
       requestId: invoice.requestId,
       name: invoice.attachmentName,
+      description: invoice.description || 'Mobilisation invoice',
       size: 0,
       uploadedBy: 'u-tunde',
       uploadedAt: invoice.createdAt,
+      status: 'approved',
+      approvedBy: 'u-funmi',
+      approvedAt: invoice.createdAt,
+      comments,
+      paymentStatus: paid ? 'paid' : 'pending',
+      receiptName: paid && receipt ? receipt.receiptName : '',
+      receiptDescription: paid && receipt ? 'Bank transfer receipt for this mobilisation invoice.' : '',
+      receiptSize: 0,
+      receiptUploadedBy: paid && receipt ? receipt.recordedBy : '',
+      receiptUploadedAt: paid && receipt ? receipt.at : '',
     })
   }
 

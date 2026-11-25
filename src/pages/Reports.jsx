@@ -68,7 +68,7 @@ export function Reports() {
             <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr key={index}>{headers.map((header) => <td key={header}>{row[header]}</td>)}</tr>
+                <tr key={index}>{headers.map((header) => <td key={header} data-label={header}>{row[header]}</td>)}</tr>
               ))}
             </tbody>
           </table>

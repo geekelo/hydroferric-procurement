@@ -29,9 +29,9 @@ export function PoDocument({ view }) {
         <tbody>
           {view.lines.map((line) => (
             <tr key={`${line.description}-${line.qty}`}>
-              <td>{line.description}</td>
-              <td>{line.qty} {line.unit}</td>
-              <td className="num">{line.amount}</td>
+              <td data-label="Description">{line.description}</td>
+              <td data-label="Qty">{line.qty} {line.unit}</td>
+              <td className="num" data-label="Amount">{line.amount}</td>
             </tr>
           ))}
         </tbody>

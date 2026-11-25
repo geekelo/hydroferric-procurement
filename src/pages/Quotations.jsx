@@ -43,13 +43,13 @@ export function Quotations() {
                 const request = requestById(state, quote.requestId)
                 return (
                   <tr key={quote.id}>
-                    <td><a className="link" href={`#/requests/${quote.requestId}`}>{quote.number}</a><span className="muted">{quote.reference}</span></td>
-                    <td>{supplierById(state, quote.supplierId)?.name}</td>
-                    <td>{request?.number}<span className="muted">{request?.title}</span></td>
-                    <td>{quote.leadDays} days</td>
-                    <td>{formatDate(quote.validity)}</td>
-                    <td><StatusBadge map={QUOTE_STATUS} status={quote.status} /></td>
-                    <td className="num">{money(quote.amount)}</td>
+                    <td data-label="Quotation"><a className="link" href={`#/requests/${quote.requestId}`}>{quote.number}</a><span className="muted">{quote.reference}</span></td>
+                    <td data-label="Supplier">{supplierById(state, quote.supplierId)?.name}</td>
+                    <td data-label="Request">{request?.number}<span className="muted">{request?.title}</span></td>
+                    <td data-label="Lead">{quote.leadDays} days</td>
+                    <td data-label="Valid">{formatDate(quote.validity)}</td>
+                    <td data-label="Status"><StatusBadge map={QUOTE_STATUS} status={quote.status} /></td>
+                    <td className="num" data-label="Amount">{money(quote.amount)}</td>
                   </tr>
                 )
               })}

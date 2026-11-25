@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import logo from '../assets/logo.png'
 import { ROLE_TONE, roleLabel } from '../domain/constants.js'
 import { deskOf, homeHash, navFor } from '../domain/desk.js'
+import { menuComments } from '../domain/documents.js'
 import { currentUser, pendingItems } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { Icon } from './Icons.jsx'
@@ -21,6 +22,7 @@ export function Shell({ hash, children }) {
   }
   const pending = user ? pendingItems(state, user).length : 0
   const unread = state.notifications.filter((item) => item.userId === user?.id && !item.read).length
+  const openComments = user ? menuComments(state, user).filter((comment) => !comment.resolved).length : 0
   const path = hash.split('?')[0]
   const home = homeHash(user)
   const canDelegate = deskOf(user) === 'approving'
@@ -45,7 +47,7 @@ export function Shell({ hash, children }) {
         <nav>
           {navFor(user).map((item) => {
             const active = path === item.href || (item.href !== home && path.startsWith(`${item.href}/`))
-            const count = item.badge === 'pending' ? pending : item.badge === 'notes' ? unread : 0
+            const count = item.badge === 'pending' ? pending : item.badge === 'notes' ? unread : item.badge === 'comments' ? openComments : 0
             return (
               <a key={item.href} className={`nav-link ${active ? 'active' : ''}`} href={item.href}>
                 <Icon name={item.icon} />

@@ -63,15 +63,15 @@ export function Requests({ department: initialDepartment = '' }) {
             <tbody>
               {rows.map((request) => (
                 <tr key={request.id}>
-                  <td><a className="link" href={`#/requests/${request.id}`}>{request.number}</a></td>
-                  <td>
+                  <td data-label="Number"><a className="link" href={`#/requests/${request.id}`}>{request.number}</a></td>
+                  <td data-label="Request">
                     <strong>{request.title}</strong>
                     <span className="muted">{request.department}</span>
                   </td>
-                  <td>{projectById(state, request.projectId)?.code}</td>
-                  <td><Badge tone={request.urgency === 'critical' || request.urgency === 'high' ? 'warn' : 'neutral'}>{URGENCIES.find((item) => item.id === request.urgency)?.label}</Badge></td>
-                  <td><StatusBadge map={REQUEST_STATUS} status={request.status} /></td>
-                  <td className="num">{money(requestTotal(request))}</td>
+                  <td data-label="Project">{projectById(state, request.projectId)?.code}</td>
+                  <td data-label="Urgency"><Badge tone={request.urgency === 'critical' || request.urgency === 'high' ? 'warn' : 'neutral'}>{URGENCIES.find((item) => item.id === request.urgency)?.label}</Badge></td>
+                  <td data-label="Status"><StatusBadge map={REQUEST_STATUS} status={request.status} /></td>
+                  <td className="num" data-label="Estimate">{money(requestTotal(request))}</td>
                 </tr>
               ))}
             </tbody>

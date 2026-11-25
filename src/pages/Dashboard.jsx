@@ -127,18 +127,18 @@ function CompanyOverview({ state, user }) {
               <th>Department</th>
               <th>Requests</th>
               <th>Open</th>
-              <th>Committed</th>
-              <th>Spent</th>
+              <th>Amount committed</th>
+              <th>Total cost</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.department}>
-                <td><a className="link" href={`#/requests?department=${encodeURIComponent(row.department)}`}>{row.department}</a></td>
-                <td>{row.requests}</td>
-                <td>{row.open}</td>
-                <td>{money(row.committed)}</td>
-                <td>{money(row.actual)}</td>
+                <td data-label="Department"><a className="link" href={`#/requests?department=${encodeURIComponent(row.department)}`}>{row.department}</a></td>
+                <td data-label="Requests">{row.requests}</td>
+                <td data-label="Open">{row.open}</td>
+                <td data-label="Amount committed">{money(row.committed)}</td>
+                <td data-label="Total cost">{money(row.total)}</td>
               </tr>
             ))}
           </tbody>
@@ -192,7 +192,7 @@ function taskBlock(state, task) {
     const schedule = state.schedules.find((item) => item.id === task.recordId)
     for (const line of schedule?.lines || []) {
       const invoice = state.invoices.find((item) => item.id === line.invoiceId)
-      const block = approvalBlock(state, requestById(state, invoice?.requestId), 'invoice')
+      const block = approvalBlock(state, requestById(state, invoice?.requestId), 'mobilization')
       if (block) return block
     }
   }
@@ -218,7 +218,7 @@ function PendingCard({ task }) {
         <h2>{task.title}</h2>
         <a href={task.href}>Open</a>
       </div>
-      {request ? <StepDocuments request={request} through={task.type === 'quotation' ? 'quotation' : task.type === 'increase' ? 'po_waybill' : task.type === 'schedule' ? 'invoice' : 'request'} /> : null}
+      {request ? <StepDocuments request={request} through={task.type === 'quotation' ? 'quotation' : task.type === 'increase' ? 'po_waybill' : task.type === 'schedule' ? 'mobilization' : 'request'} /> : null}
       <p>{task.detail}</p>
       {task.type === 'request' ? (
         <DecisionForm comment={comment} setComment={setComment} approveLabel="Approve" note={block} approveDisabled={Boolean(block)} onApprove={() => store.decideRequest(task.recordId, 'approve', comment)} onReturn={() => store.decideRequest(task.recordId, 'return', comment)} onReject={() => store.decideRequest(task.recordId, 'reject', comment)} />
@@ -314,7 +314,7 @@ function ProjectBars({ state, projects }) {
             <a key={project.id} className="budget-row" href={`#/projects/${project.id}`}>
               <div>
                 <strong>{project.name}</strong>
-                <span>{money(figures.actual)} spent · {money(figures.committed)} committed</span>
+                <span>{money(figures.committed)} committed · {money(figures.total)} total cost</span>
               </div>
               <div className="bar" aria-hidden="true">
                 <b style={{ width: `${committed}%` }} />

@@ -33,7 +33,7 @@ export function Field({ label, hint, children, className = '' }) {
   )
 }
 
-export function Modal({ title, onClose, children, wide = false }) {
+export function Modal({ title, onClose, children, wide = false, className = '' }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'Escape') onClose()
@@ -45,7 +45,7 @@ export function Modal({ title, onClose, children, wide = false }) {
   return (
     <div className="modal-back" onClick={onClose} role="presentation">
       <div
-        className={`modal ${wide ? 'modal-wide' : ''}`}
+        className={`modal ${wide ? 'modal-wide' : ''} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-label={title}

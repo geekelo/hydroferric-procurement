@@ -1,5 +1,5 @@
 import { uid } from '../lib/format.js'
-import { approvalBlock, canFileDocuments, canFileOnProject, DOCUMENT_STEPS } from './documents.js'
+import { approvalBlock, canApproveDocuments, canCommentOnRequest, canFileDocuments, canFileOnProject, canMarkMobilizationPaid, canResolveRequestComments, DOCUMENT_STEPS, mobilizationCloseBlock, stepLock } from './documents.js'
 import { createSeed } from './seed.js'
 import {
   alreadyActed,
@@ -51,7 +51,7 @@ function scheduleDocumentBlock(state, schedule, stepId) {
   return ''
 }
 
-function addProjectDocument(state, { projectId, category, requestId, name, size }) {
+function addProjectDocument(state, { projectId, category, requestId, name, size, description }) {
   const user = actor(state)
   const project = state.projects.find((item) => item.id === projectId)
   if (!project) return deny(state, 'Project not found.')
@@ -59,18 +59,27 @@ function addProjectDocument(state, { projectId, category, requestId, name, size 
   const step = DOCUMENT_STEPS.find((item) => item.id === category)
   if (!step) return deny(state, 'Choose a document category.')
   const fileName = String(name || '').trim()
+  const about = String(description || '').trim()
   if (!fileName) return deny(state, 'Choose a document to upload.')
-  if (requestId && !state.requests.some((item) => item.id === requestId && item.projectId === projectId)) {
-    return deny(state, 'That request is not on this project.')
-  }
+  if (!about) return deny(state, 'Describe what this document is about.')
+  const request = state.requests.find((item) => item.id === requestId && item.projectId === projectId)
+  if (!request) return deny(state, 'Choose the request this document belongs to.')
+  const waiting = stepLock(state, request, category)
+  if (waiting) return deny(state, `LOCKED (Waiting for approval of ${waiting}).`)
   const document = {
     id: uid('doc'),
     category,
-    requestId: requestId || '',
+    requestId,
     name: fileName,
     size: Number(size) || 0,
     uploadedBy: user.id,
     uploadedAt: nowIso(),
+    status: 'pending',
+    description: about,
+    comments: [],
+    paymentStatus: category === 'mobilization' ? 'pending' : '',
+    receiptName: '',
+    receiptDescription: '',
   }
   const next = { ...project, documents: [...(project.documents || []), document] }
   return flash(
@@ -83,6 +92,191 @@ function addProjectDocument(state, { projectId, category, requestId, name, size 
     ),
     'good',
     `${fileName} filed under ${step.label}.`,
+  )
+}
+
+function findFiledDocument(state, projectId, documentId) {
+  const project = state.projects.find((item) => item.id === projectId)
+  const document = (project?.documents || []).find((item) => item.id === documentId)
+  return { project, document }
+}
+
+function approveDocument(state, { projectId, documentId }) {
+  const user = actor(state)
+  if (!canApproveDocuments(user)) return deny(state, 'An approving officer must approve this document.')
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  if (document.status === 'approved') return deny(state, 'An approved document cannot be changed.')
+  if (document.status === 'rejected') return deny(state, 'A rejected document cannot be approved. Delete it and upload a replacement.')
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? { ...item, status: 'approved', approvedBy: user.id, approvedAt: nowIso() } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Document approved', 'project', projectId, document.name),
+    'good',
+    `${document.name} approved.`,
+  )
+}
+
+function rejectDocument(state, { projectId, documentId, reason }) {
+  const user = actor(state)
+  if (!canApproveDocuments(user)) return deny(state, 'An approving officer must reject this document.')
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  if (document.status === 'approved') return deny(state, 'An approved document cannot be rejected.')
+  if (document.status === 'rejected') return state
+  const note = String(reason || '').trim()
+  if (note.length < 3) return deny(state, 'Say why this document is rejected.')
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? {
+      ...item,
+      status: 'rejected',
+      rejectedBy: user.id,
+      rejectedAt: nowIso(),
+      rejectionNote: note,
+    } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Document rejected', 'project', projectId, `${document.name}: ${note}`),
+    'good',
+    `${document.name} rejected.`,
+  )
+}
+
+function deleteDocument(state, { projectId, documentId }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!project || !document) return deny(state, 'Document not found.')
+  if (!canFileOnProject(user, project)) return deny(state, 'Only the HOD, accounts, the MD and the site admin can delete a rejected document.')
+  if (document.status === 'approved') return deny(state, 'An approved document cannot be deleted.')
+  if (document.status !== 'rejected') return deny(state, 'Only a rejected document can be deleted.')
+  const next = { ...project, documents: project.documents.filter((item) => item.id !== documentId) }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Rejected document deleted', 'project', projectId, document.name),
+    'good',
+    `${document.name} deleted.`,
+  )
+}
+
+function setMobilizationPayment(state, { projectId, documentId, paymentStatus }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document || document.category !== 'mobilization' && document.category !== 'invoice') return deny(state, 'Choose a mobilisation invoice.')
+  if (!canMarkMobilizationPaid(user, project)) return deny(state, 'Accounts, the HOD, the MD or the site admin marks a mobilisation invoice paid or pending.')
+  if (document.status !== 'approved') return deny(state, 'Approve the mobilisation invoice before marking it paid or pending.')
+  const status = paymentStatus === 'paid' ? 'paid' : 'pending'
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? { ...item, category: 'mobilization', paymentStatus: status } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, status === 'paid' ? 'Mobilisation invoice marked paid' : 'Mobilisation invoice marked pending', 'project', projectId, document.name),
+    'good',
+    status === 'paid' ? `${document.name} marked paid. Upload the receipt beside it.` : `${document.name} marked pending.`,
+  )
+}
+
+function addDocumentComment(state, { projectId, documentId, text }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  const request = state.requests.find((item) => item.id === document.requestId)
+  if (!canCommentOnRequest(user, state, request)) return deny(state, 'Only the HOD, the assigned approver, accounts, the MD and the site admin can comment.')
+  const body = String(text || '').trim()
+  if (!body) return deny(state, 'Write a comment.')
+  const comment = { id: uid('cmt'), text: body, authorId: user.id, at: nowIso(), resolved: false, hidden: false, resolutionNote: '' }
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? { ...item, comments: [...(item.comments || []), comment] } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Comment added', 'project', projectId, `${document.name}: ${body}`),
+    'good',
+    'Comment added.',
+  )
+}
+
+function resolveDocumentComment(state, { projectId, documentId, commentId, resolutionNote }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  const request = state.requests.find((item) => item.id === document.requestId)
+  if (!canResolveRequestComments(user, request)) return deny(state, 'The HOD resolves comments on this requisition.')
+  const comment = (document.comments || []).find((item) => item.id === commentId)
+  if (!comment) return deny(state, 'Comment not found.')
+  if (comment.resolved) return state
+  const note = String(resolutionNote || '').trim()
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? {
+      ...item,
+      comments: item.comments.map((entry) => entry.id === commentId ? {
+        ...entry,
+        resolved: true,
+        resolvedBy: user.id,
+        resolvedAt: nowIso(),
+        resolutionNote: note,
+      } : entry),
+    } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Comment resolved', 'project', projectId, document.name),
+    'good',
+    'Comment resolved.',
+  )
+}
+
+function hideDocumentComment(state, { projectId, documentId, commentId }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  const request = state.requests.find((item) => item.id === document.requestId)
+  if (!canResolveRequestComments(user, request)) return deny(state, 'The HOD hides a resolved comment.')
+  const comment = (document.comments || []).find((item) => item.id === commentId)
+  if (!comment?.resolved) return deny(state, 'Resolve the comment before hiding it.')
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? {
+      ...item,
+      comments: item.comments.map((entry) => entry.id === commentId ? { ...entry, hidden: true } : entry),
+    } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Comment hidden', 'project', projectId, document.name),
+    'good',
+    'Resolved comment hidden from the comments list.',
+  )
+}
+
+function addMobilizationReceipt(state, { projectId, documentId, name, size, description }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!project) return deny(state, 'Project not found.')
+  if (!canFileOnProject(user, project)) return deny(state, 'Only the HOD, accounts, the MD and the site admin can upload documents.')
+  if (!document) return deny(state, 'Mobilisation invoice not found.')
+  if (document.paymentStatus !== 'paid') return deny(state, 'Mark the mobilisation invoice paid before uploading its receipt.')
+  const fileName = String(name || '').trim()
+  const about = String(description || '').trim()
+  if (!fileName) return deny(state, 'Choose a receipt to upload.')
+  if (!about) return deny(state, 'Describe what this receipt is about.')
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? {
+      ...item,
+      category: 'mobilization',
+      receiptName: fileName,
+      receiptDescription: about,
+      receiptSize: Number(size) || 0,
+      receiptUploadedBy: user.id,
+      receiptUploadedAt: nowIso(),
+    } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Receipt filed', 'project', projectId, `${document.name}: ${fileName}`),
+    'good',
+    `${fileName} filed beside ${document.name}.`,
   )
 }
 
@@ -865,7 +1059,7 @@ function resolveInvoice(state, { id, decision, comment }) {
     return flash(audit(nextState, 'Invoice rejected', 'invoice', id, text), 'good', 'Invoice rejected.')
   }
   if (decision === 'accept' || decision === 'accept-variance') {
-    const block = approvalBlock(state, request, 'uploaded_invoice')
+    const block = approvalBlock(state, request, 'vendor_invoice')
     if (block) return deny(state, block)
   }
 
@@ -1136,7 +1330,7 @@ function submitSchedule(state, id) {
   const schedule = state.schedules.find((item) => item.id === id)
   if (!schedule || schedule.status !== 'draft') return deny(state, 'Only a draft schedule can be submitted.')
   if (!schedule.lines.length) return deny(state, 'The schedule has no invoices.')
-  const scheduleBlock = scheduleDocumentBlock(state, schedule, 'invoice')
+  const scheduleBlock = scheduleDocumentBlock(state, schedule, 'mobilization')
   if (scheduleBlock) return deny(state, scheduleBlock)
   const total = schedule.lines.reduce((sum, line) => sum + Number(line.amount), 0)
   const levels = freshLevels(paymentLevels(total, state.policy))
@@ -1166,7 +1360,7 @@ function decideSchedule(state, { id, decision, comment }) {
   if (alreadyActed(levels, user)) return deny(state, 'You already decided an earlier level. A different officer must take this one.')
   if (decision === 'reject' && String(comment || '').trim().length < 3) return deny(state, 'Say why the schedule is rejected.')
   if (decision !== 'reject') {
-    const block = scheduleDocumentBlock(state, schedule, 'invoice')
+    const block = scheduleDocumentBlock(state, schedule, 'mobilization')
     if (block) return deny(state, block)
   }
   const result = applyDecision(levels, user, decision === 'reject' ? 'reject' : 'approve', comment)
@@ -1360,7 +1554,7 @@ function closeRequest(state, id) {
     return deny(state, 'Clear held, unmatched and unpaid invoices before close-out.')
   }
   if (state.verifications.some((item) => item.requestId === id && item.status === 'assigned')) return deny(state, 'Finish the open verification first.')
-  const closeBlock = approvalBlock(state, request, 'receipt')
+  const closeBlock = mobilizationCloseBlock(state, request)
   if (closeBlock) return deny(state, closeBlock)
   const spent = invoices.reduce((sum, item) => sum + Number(item.paidAmount), 0)
   const nextRequest = addHistory({ ...request, status: 'closed' }, user.id, 'Request closed out')
@@ -1578,6 +1772,22 @@ export function reducer(state, action) {
       return projectUpdate(state, action)
     case 'add-project-document':
       return addProjectDocument(state, action)
+    case 'approve-document':
+      return approveDocument(state, action)
+    case 'reject-document':
+      return rejectDocument(state, action)
+    case 'delete-document':
+      return deleteDocument(state, action)
+    case 'set-mobilization-payment':
+      return setMobilizationPayment(state, action)
+    case 'add-mobilization-receipt':
+      return addMobilizationReceipt(state, action)
+    case 'add-document-comment':
+      return addDocumentComment(state, action)
+    case 'resolve-document-comment':
+      return resolveDocumentComment(state, action)
+    case 'hide-document-comment':
+      return hideDocumentComment(state, action)
     case 'save-user':
       return saveUser(state, action.user)
     case 'save-policy':

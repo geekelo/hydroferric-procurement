@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from './domain/store.jsx'
 import { currentUser } from './domain/selectors.js'
 import { deskOf, homeHash } from './domain/desk.js'
 import { Admin } from './pages/Admin.jsx'
+import { Comments } from './pages/Comments.jsx'
 import { Activity, Done, Notifications, Overview, Pending } from './pages/Dashboard.jsx'
 import { InvoiceDetail, InvoiceForm } from './pages/Invoices.jsx'
 import { Login } from './pages/Login.jsx'
@@ -41,6 +42,7 @@ function Workspace() {
     pending: 'Pending',
     done: 'Done',
     notifications: 'Notifications',
+    comments: 'Comments',
     activity: 'Activity',
     quotations: 'Quotations',
     orders: 'Purchase orders',
@@ -78,6 +80,7 @@ function Workspace() {
   } else if (section === 'pending') page = <Pending />
   else if (section === 'done') page = <Done />
   else if (section === 'notifications') page = <Notifications />
+  else if (section === 'comments') page = <Comments />
   else if (section === 'activity') page = <Activity />
   else if (section === 'requests' && id === 'new') page = <RequestForm key="new" />
   else if (section === 'requests' && action === 'edit') page = <RequestForm key={id} id={id} />
@@ -90,7 +93,7 @@ function Workspace() {
   else if (section === 'invoices' && id) page = <InvoiceDetail key={id} id={id} />
   else if (section === 'projects' && id === 'new') page = <ProjectForm key="new" />
   else if (section === 'projects' && action === 'edit') page = <ProjectForm key={id} id={id} />
-  else if (section === 'projects' && id) page = <ProjectDetail key={id} id={id} verificationId={search.get('verification') || ''} />
+  else if (section === 'projects' && id) page = <ProjectDetail key={id} id={id} verificationId={search.get('verification') || ''} requestId={search.get('request') || ''} />
   else if (section === 'projects') page = <Projects />
   else if (section === 'payments' && id) page = <PaymentRecord key={id} id={id} />
   else if (section === 'payments') page = <Payments />
@@ -104,11 +107,11 @@ function Workspace() {
 function pageAllowed(desk, section, id) {
   if (!section || section === 'overview' || section === 'dashboard' || section === 'approvals') return true
   const lists = {
-    approving: ['pending', 'done', 'notifications'],
-    department: ['overview', 'projects', 'requests', 'notifications', 'reports'],
-    accounts: ['overview', 'notifications', 'payments', 'projects', 'reports'],
-    executive: ['overview', 'activity', 'projects', 'notifications', 'requests', 'payments', 'reports'],
-    admin: ['overview', 'activity', 'projects', 'notifications', 'requests', 'payments', 'reports', 'admin'],
+    approving: ['pending', 'done', 'notifications', 'comments'],
+    department: ['overview', 'projects', 'requests', 'notifications', 'comments', 'reports'],
+    accounts: ['overview', 'notifications', 'comments', 'payments', 'projects', 'reports'],
+    executive: ['overview', 'activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports'],
+    admin: ['overview', 'activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports', 'admin'],
   }
   if ((lists[desk] || []).includes(section)) return true
   if (section === 'requests' && id === 'new') return desk === 'department' || desk === 'admin'

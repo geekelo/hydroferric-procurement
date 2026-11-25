@@ -55,12 +55,12 @@ export function Invoices() {
                 const tone = effectiveInvoiceStatus(invoice)
                 return (
                   <tr key={invoice.id}>
-                    <td><a className="link" href={`#/invoices/${invoice.id}`}>{invoice.reference}</a></td>
-                    <td>{supplierById(state, invoice.supplierId)?.name}</td>
-                    <td>{projectById(state, invoice.projectId)?.code}</td>
-                    <td>{formatDate(invoice.dueDate)}</td>
-                    <td>{tone === 'overdue' ? <StatusBadge map={{ overdue: { label: 'Overdue', tone: 'bad' } }} status="overdue" /> : <StatusBadge map={INVOICE_STATUS} status={invoice.status} />}</td>
-                    <td className="num">{money(invoiceOutstanding(invoice))}</td>
+                    <td data-label="Reference"><a className="link" href={`#/invoices/${invoice.id}`}>{invoice.reference}</a></td>
+                    <td data-label="Supplier">{supplierById(state, invoice.supplierId)?.name}</td>
+                    <td data-label="Project">{projectById(state, invoice.projectId)?.code}</td>
+                    <td data-label="Due">{formatDate(invoice.dueDate)}</td>
+                    <td data-label="Status">{tone === 'overdue' ? <StatusBadge map={{ overdue: { label: 'Overdue', tone: 'bad' } }} status="overdue" /> : <StatusBadge map={INVOICE_STATUS} status={invoice.status} />}</td>
+                    <td className="num" data-label="Outstanding">{money(invoiceOutstanding(invoice))}</td>
                   </tr>
                 )
               })}
@@ -106,7 +106,7 @@ export function InvoiceForm({ poId }) {
             <Field label="Supporting document" className="span-2">
               <input type="file" onChange={(event) => setForm({ ...form, attachmentName: event.target.files?.[0]?.name || '' })} />
             </Field>
-          ) : <p className="hint span-2">The invoice file is added on the project by the HOD, accounts, the MD or the site admin.</p>}
+          ) : <p className="hint span-2">The invoice file is added on the request by the HOD, accounts, the MD or the site admin.</p>}
         </div>
         {order ? <p className="hint">Order total {money(order.total)}. Supplier {supplierById(state, order.supplierId)?.name}.</p> : null}
         <button className="btn btn-primary" type="submit">Save invoice</button>

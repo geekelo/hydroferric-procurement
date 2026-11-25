@@ -43,10 +43,10 @@ export function Audit() {
           <tbody>
             {rows.map((entry) => (
               <tr key={entry.id}>
-                <td>{formatWhen(entry.at)}</td>
-                <td>{personName(state, entry.actorId)}</td>
-                <td>{entry.action}<span className="muted">{entry.entityType}</span></td>
-                <td>{entry.detail}</td>
+                <td data-label="When">{formatWhen(entry.at)}</td>
+                <td data-label="Officer">{personName(state, entry.actorId)}</td>
+                <td data-label="Action">{entry.action}<span className="muted">{entry.entityType}</span></td>
+                <td data-label="Detail">{entry.detail}</td>
               </tr>
             ))}
           </tbody>
