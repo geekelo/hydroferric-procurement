@@ -82,7 +82,7 @@ function Workspace() {
   else if (section === 'notifications') page = <Notifications />
   else if (section === 'comments') page = <Comments />
   else if (section === 'activity') page = <Activity />
-  else if (section === 'requests' && id === 'new') page = <RequestForm key="new" />
+  else if (section === 'requests' && id === 'new') page = <RequestForm key={search.get('project') || 'new'} projectId={search.get('project') || ''} />
   else if (section === 'requests' && action === 'edit') page = <RequestForm key={id} id={id} />
   else if (section === 'requests' && id) page = <RequestDetail key={id} id={id} />
   else if (section === 'requests') page = <Requests key={search.get('department') || 'all'} department={search.get('department') || ''} />

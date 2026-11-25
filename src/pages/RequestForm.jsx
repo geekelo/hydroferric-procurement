@@ -8,13 +8,13 @@ import { Empty, Field, FilesField, PageHead } from '../components/ui.jsx'
 
 const emptyLine = (id) => ({ id, description: '', qty: 1, unit: 'pcs', unitCost: '' })
 
-export function RequestForm({ id }) {
+export function RequestForm({ id, projectId: preferredProject = '' }) {
   const { state, saveRequest, submitRequest } = useStore()
   const user = currentUser(state)
   const existing = id ? requestById(state, id) : null
   const [title, setTitle] = useState(existing?.title || '')
   const [department, setDepartment] = useState(existing?.department || user.department)
-  const [projectId, setProjectId] = useState(existing?.projectId || state.projects[0]?.id || '')
+  const [projectId, setProjectId] = useState(existing?.projectId || preferredProject || state.projects[0]?.id || '')
   const [urgency, setUrgency] = useState(existing?.urgency || 'normal')
   const [justification, setJustification] = useState(existing?.justification || '')
   const [items, setItems] = useState(existing?.items?.map((item) => ({ ...item, unitCost: item.unitCost })) || [emptyLine('line-1')])

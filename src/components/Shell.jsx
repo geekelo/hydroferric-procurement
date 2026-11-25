@@ -60,11 +60,23 @@ export function Shell({ hash, children }) {
       </aside>
       <div className="main">
         <header className="topbar">
+          <a className="phone-brand" href={home}>
+            <img src={logo} alt="" />
+            <span>
+              <strong>Hydroferric</strong>
+              <span>Requisitions</span>
+            </span>
+          </a>
           <button className="icon-btn menu-toggle" type="button" aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen((value) => !value)}>
             <Icon name="menu" />
           </button>
+          <a className="icon-btn phone-bell" href="#/notifications" aria-label="Notifications">
+            <Icon name="bell" />
+            {unread ? <i className="dot" /> : null}
+          </a>
           <button className="user-btn" type="button" onClick={() => setMenu((value) => !value)}>
-            <span>{user.name}</span>
+            <span className="phone-initials">{initials(user.name)}</span>
+            <span className="user-name">{user.name}</span>
             <Badge tone={ROLE_TONE[user.role]}>{roleLabel(user.role)}</Badge>
           </button>
           {menu ? (
@@ -76,6 +88,7 @@ export function Shell({ hash, children }) {
           ) : null}
         </header>
         <div className="page">{children}</div>
+        <PhoneTabs hash={path} home={home} user={user} onMore={() => setOpen(true)} />
       </div>
       {state.flash ? <div className={`toast tone-${state.flash.tone === 'bad' ? 'bad' : 'good'}`} role="status">{state.flash.text}</div> : null}
       {delegateOpen ? (
@@ -90,6 +103,29 @@ export function Shell({ hash, children }) {
         />
       ) : null}
     </div>
+  )
+}
+
+function initials(name) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+}
+
+function PhoneTabs({ hash, home, user, onMore }) {
+  const nav = navFor(user)
+  const shown = nav.length > 5 ? nav.slice(0, 4) : nav
+  return (
+    <nav className="tabbar" aria-label="Menu">
+      {shown.map((item) => {
+        const active = hash === item.href || (item.href !== home && hash.startsWith(`${item.href}/`))
+        return (
+          <a key={item.href} className={active ? 'on' : ''} href={item.href}>
+            <Icon name={item.icon} size={18} />
+            {item.label}
+          </a>
+        )
+      })}
+      {nav.length > 5 ? <button type="button" onClick={onMore}><Icon name="menu" size={18} />More</button> : null}
+    </nav>
   )
 }
 

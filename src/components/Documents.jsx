@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { REQUEST_STATUS, statusMeta } from '../domain/constants.js'
+import { REQUEST_STATUS, URGENCIES, statusMeta } from '../domain/constants.js'
 import { canApproveDocuments, canCommentOnRequest, canFileOnProject, canMarkMobilizationPaid, canResolveRequestComments, categorySettled, commentsForRequest, documentsForRequest, DOCUMENT_STEPS, missingSteps, stepLock } from '../domain/documents.js'
 import { currentUser, personName, requestFigures } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
@@ -19,20 +19,13 @@ const STATUS_ICON = {
   returned: 'close',
 }
 
-function requestIcon(request) {
-  const text = `${request.title} ${request.category || ''}`.toLowerCase()
-  if (/vehicle|truck|car|pool/.test(text)) return 'truck'
-  if (/chemical|lab|dosing|glass|reagent/.test(text)) return 'flask'
-  if (/spare|valve|weld|clarifier|gear|pump/.test(text)) return 'gear'
-  return 'layers'
-}
-
 export function RequestList({ project, openRequestId = '' }) {
   const { state, addProjectDocument } = useStore()
   const [openId, setOpenId] = useState(openRequestId)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [sort, setSort] = useState('newest')
+  const [filters, setFilters] = useState(false)
   const allowed = canFileOnProject(currentUser(state), project)
   const requests = state.requests.filter((request) => request.projectId === project.id)
   const needle = query.trim().toLowerCase()
@@ -55,11 +48,14 @@ export function RequestList({ project, openRequestId = '' }) {
             : 'Select a requisition to read the documents filed on it. Approve a document to unlock the next one. Comments sit beside each upload.'}
         </p>
       </div>
-      <div className="req-tools">
+      <div className={`req-tools ${filters ? 'open' : ''}`}>
         <label className="req-search">
           <Icon name="search" size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requisitions..." aria-label="Search requisitions" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requisition (e.g. PR-2026-0001)" aria-label="Search requisitions" />
         </label>
+        <button className="req-filter" type="button" aria-expanded={filters} aria-label="Filter requisitions" onClick={() => setFilters((value) => !value)}>
+          <Icon name="filter" size={18} />
+        </button>
         <select aria-label="All statuses" value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">All statuses</option>
           {Object.entries(REQUEST_STATUS).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}
@@ -103,23 +99,73 @@ function RequestRow({ request, onOpen }) {
   const unresolved = comments.filter((comment) => !comment.resolved && !comment.hidden).length
   const meta = statusMeta(REQUEST_STATUS, request.status)
   return (
-    <button className="request-row" type="button" onClick={onOpen}>
-      <span className="req-ico"><Icon name={requestIcon(request)} size={18} /></span>
+    <button className={`request-row status-${request.status}`} type="button" onClick={onOpen}>
+      <span className="req-ico"><Icon name="file" size={18} /></span>
       <span className="req-id">
         <strong>{request.number}</strong>
         <span>{request.title}</span>
       </span>
-      <span className="req-money"><Icon name="pay" size={15} />{money(requestTotal(request))}</span>
-      <span className="req-comments">
-        <Icon name="comment" size={15} />
-        {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
-        {unresolved ? <b>{unresolved} new</b> : null}
+      <span className="req-meta">
+        <span className="req-money"><Icon name="pay" size={15} />{money(requestTotal(request))}</span>
+        <span className="req-comments">
+          <Icon name="comment" size={15} />
+          {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+          {unresolved ? <b>{unresolved} new</b> : null}
+        </span>
       </span>
       <span className={`badge tone-${meta.tone} req-status`}>
         {STATUS_ICON[request.status] ? <Icon name={STATUS_ICON[request.status]} size={13} /> : null}
         {meta.label}
       </span>
+      <span className="req-go" aria-hidden="true"><Icon name="chevron" size={16} /></span>
     </button>
+  )
+}
+
+function RequisitionFacts({ state, request, project }) {
+  const urgency = URGENCIES.find((item) => item.id === request.urgency)
+  const requestedAt = request.history?.find((entry) => /submitted/i.test(entry.action))?.at || request.createdAt
+  const tone = request.urgency === 'critical' || request.urgency === 'high' ? 'bad' : 'info'
+  return (
+    <section className="req-facts">
+      <div>
+        <Fact icon="admin" label="Requester">{personName(state, request.requesterId)}</Fact>
+        <Fact icon="building" label="Department">{request.department}</Fact>
+        <Fact icon="flag" label="Urgency"><span className={`badge tone-${tone}`}>{urgency?.label || request.urgency}</span></Fact>
+      </div>
+      <div>
+        <Fact icon="project" label="Project"><a href={`#/projects/${project?.id}`}>{project?.name}</a></Fact>
+        <Fact icon="calendar" label="Date requested">{formatWhen(requestedAt)}</Fact>
+        <Fact icon="invoice" label="Estimate (total)">{money(requestTotal(request))}</Fact>
+      </div>
+      <div className="req-items">
+        <h3>Items ({request.items?.length || 0})</h3>
+        <table>
+          <thead>
+            <tr><th>Description</th><th>Qty</th><th>Estimate</th></tr>
+          </thead>
+          <tbody>
+            {(request.items || []).map((item) => (
+              <tr key={item.id}>
+                <td data-label="Description">{item.description}</td>
+                <td data-label="Qty">{item.qty} {item.unit}</td>
+                <td data-label="Estimate">{money(item.qty * item.unitCost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function Fact({ icon, label, children }) {
+  return (
+    <p className="fact">
+      <Icon name={icon} size={16} />
+      <small>{label}</small>
+      <strong>{children}</strong>
+    </p>
   )
 }
 
@@ -159,6 +205,7 @@ function RequestDocuments({ state, request, allowed, onFile }) {
   )
   return (
     <div className="stack">
+      <RequisitionFacts state={state} request={request} project={project} />
       <CostFigures figures={requestFigures(state, request)} colorful />
       <p className="hint desk-only"><a href={`#/requests/${request.id}`}>Open requisition</a></p>
       <div className="doc-mobile">

@@ -22,6 +22,11 @@ const paths = {
   flask: 'M9 3h6M10 3v6L6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l-4-10V3',
   gear: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM12 3.5v2.2M12 18.3v2.2M4.8 6.6l1.6 1.6M17.6 15.8l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.8 17.4l1.6-1.6M17.6 8.2l1.6-1.6',
   layers: 'M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4',
+  filter: 'M4 6h16M7 12h10M10 18h4',
+  plus: 'M12 5v14M5 12h14',
+  building: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6',
+  flag: 'M6 21V4h9l-2 4 2 4H6',
+  calendar: 'M7 4v3M17 4v3M5 9h14M6 5h12a1 1 0 0 1 1 1v12H5V6a1 1 0 0 1 1-1z',
 }
 
 export function Icon({ name, size = 18 }) {

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { DEPARTMENTS } from '../domain/constants.js'
+import { navFor } from '../domain/desk.js'
+import { Icon } from '../components/Icons.jsx'
 import { currentUser, personName, projectFigures, visibleProjects } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { RequestList } from '../components/Documents.jsx'
@@ -100,7 +102,14 @@ export function ProjectDetail({ id, verificationId, requestId = '' }) {
       <PageHead kicker={project.department} title={project.name} lead={project.description}>
         {user.role === 'admin' ? <a className="btn btn-ghost" href={`#/projects/${project.id}/edit`}>Edit</a> : null}
       </PageHead>
+      <nav className="phone-tabs" aria-label="Project sections">
+        <span className="on"><Icon name="file" size={16} /> Requests</span>
+        {navFor(user).filter((item) => item.href === '#/overview' || item.href === '#/reports').map((item) => (
+          <a key={item.href} href={item.href}><Icon name={item.icon} size={16} /> {item.label}</a>
+        ))}
+      </nav>
       <RequestList key={requestId || namedVerification?.requestId || 'list'} project={project} openRequestId={requestId || namedVerification?.requestId || ''} />
+      {user.role === 'requester' || user.role === 'admin' ? <a className="fab" href={`#/requests/new?project=${project.id}`} aria-label="New request"><Icon name="plus" size={22} /></a> : null}
       {focus?.status === 'assigned' ? <VerificationCard verification={focus} user={user} assignee={personName(state, focus.assigneeId)} saveVerification={saveVerification} /> : null}
     </>
   )
