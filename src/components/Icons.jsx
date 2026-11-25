@@ -19,6 +19,9 @@ const paths = {
   lock: 'M8 11V8a4 4 0 0 1 8 0v3M6 11h12v9H6z',
   chevron: 'M6 9l6 6 6-6',
   download: 'M12 4v10M8 10l4 4 4-4M5 19h14',
+  flask: 'M9 3h6M10 3v6L6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l-4-10V3',
+  gear: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM12 3.5v2.2M12 18.3v2.2M4.8 6.6l1.6 1.6M17.6 15.8l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.8 17.4l1.6-1.6M17.6 8.2l1.6-1.6',
+  layers: 'M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4',
 }
 
 export function Icon({ name, size = 18 }) {

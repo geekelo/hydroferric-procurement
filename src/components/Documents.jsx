@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { REQUEST_STATUS } from '../domain/constants.js'
+import { REQUEST_STATUS, statusMeta } from '../domain/constants.js'
 import { canApproveDocuments, canCommentOnRequest, canFileOnProject, canMarkMobilizationPaid, canResolveRequestComments, categorySettled, commentsForRequest, documentsForRequest, DOCUMENT_STEPS, missingSteps, stepLock } from '../domain/documents.js'
 import { currentUser, personName, requestFigures } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
@@ -8,29 +8,74 @@ import { fileSize, formatWhen, money } from '../lib/format.js'
 import { Icon } from './Icons.jsx'
 import { Field, Modal, StatusBadge } from './ui.jsx'
 
+const STATUS_ICON = {
+  closed: 'check',
+  approved: 'check',
+  po_issued: 'check',
+  recommended: 'admin',
+  in_approval: 'admin',
+  rejected: 'close',
+  cancelled: 'close',
+  returned: 'close',
+}
+
+function requestIcon(request) {
+  const text = `${request.title} ${request.category || ''}`.toLowerCase()
+  if (/vehicle|truck|car|pool/.test(text)) return 'truck'
+  if (/chemical|lab|dosing|glass|reagent/.test(text)) return 'flask'
+  if (/spare|valve|weld|clarifier|gear|pump/.test(text)) return 'gear'
+  return 'layers'
+}
+
 export function RequestList({ project, openRequestId = '' }) {
   const { state, addProjectDocument } = useStore()
   const [openId, setOpenId] = useState(openRequestId)
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('all')
+  const [sort, setSort] = useState('newest')
   const allowed = canFileOnProject(currentUser(state), project)
   const requests = state.requests.filter((request) => request.projectId === project.id)
+  const needle = query.trim().toLowerCase()
+  const shown = requests
+    .filter((request) => status === 'all' || request.status === status)
+    .filter((request) => !needle || `${request.number} ${request.title}`.toLowerCase().includes(needle))
+    .sort((a, b) => {
+      const diff = new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+      if (diff) return sort === 'newest' ? -diff : diff
+      return sort === 'newest' ? b.number.localeCompare(a.number) : a.number.localeCompare(b.number)
+    })
   const openRequest = requests.find((request) => request.id === openId)
   return (
-    <section className="stack">
-      <div className="card-head">
+    <section className="req-board">
+      <div>
         <h2>Requests</h2>
+        <p className="hint">
+          {allowed
+            ? 'Select a requisition to open its documents. Every upload needs a description, and each one must be approved before the next can be uploaded. The HOD, the assigned approver, accounts, the MD and the site admin can comment on an upload.'
+            : 'Select a requisition to read the documents filed on it. Approve a document to unlock the next one. Comments sit beside each upload.'}
+        </p>
       </div>
-      <p className="hint">
-        {allowed
-          ? 'Select a requisition to open its documents. Every upload needs a description, and each one must be approved before the next can be uploaded. The HOD, the assigned approver, accounts, the MD and the site admin can comment on an upload.'
-          : 'Select a requisition to read the documents filed on it. Approve a document to unlock the next one. Comments sit beside each upload.'}
-      </p>
-      {requests.length ? (
+      <div className="req-tools">
+        <label className="req-search">
+          <Icon name="search" size={16} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requisitions..." aria-label="Search requisitions" />
+        </label>
+        <select aria-label="All statuses" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="all">All statuses</option>
+          {Object.entries(REQUEST_STATUS).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}
+        </select>
+        <select aria-label="Newest first" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      {shown.length ? (
         <div className="stack">
-          {requests.map((request) => (
+          {shown.map((request) => (
             <RequestRow key={request.id} request={request} onOpen={() => setOpenId(request.id)} />
           ))}
         </div>
-      ) : <p className="hint">No requisitions on this project.</p>}
+      ) : <p className="hint">{requests.length ? 'No requisitions match this search.' : 'No requisitions on this project.'}</p>}
       {openRequest ? (
         <Modal className="request-popup" title={`${openRequest.number} · ${openRequest.title}`} onClose={() => setOpenId('')} wide>
           <RequestDocuments
@@ -56,16 +101,23 @@ function RequestRow({ request, onOpen }) {
   const { state } = useStore()
   const comments = commentsForRequest(state, request.id)
   const unresolved = comments.filter((comment) => !comment.resolved && !comment.hidden).length
+  const meta = statusMeta(REQUEST_STATUS, request.status)
   return (
     <button className="request-row" type="button" onClick={onOpen}>
-      <span>
+      <span className="req-ico"><Icon name={requestIcon(request)} size={18} /></span>
+      <span className="req-id">
         <strong>{request.number}</strong>
         <span>{request.title}</span>
       </span>
-      <span className="request-fold-meta">
-        <em>{money(requestTotal(request))}</em>
-        <em>{comments.length} {comments.length === 1 ? 'comment' : 'comments'}{unresolved ? ` · ${unresolved} new` : ''}</em>
-        <StatusBadge map={REQUEST_STATUS} status={request.status} />
+      <span className="req-money"><Icon name="pay" size={15} />{money(requestTotal(request))}</span>
+      <span className="req-comments">
+        <Icon name="comment" size={15} />
+        {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+        {unresolved ? <b>{unresolved} new</b> : null}
+      </span>
+      <span className={`badge tone-${meta.tone} req-status`}>
+        {STATUS_ICON[request.status] ? <Icon name={STATUS_ICON[request.status]} size={13} /> : null}
+        {meta.label}
       </span>
     </button>
   )
