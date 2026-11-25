@@ -27,6 +27,7 @@ const paths = {
   building: 'M4 20V9l8-5 8 5v11M9 20v-6h6v6',
   flag: 'M6 21V4h9l-2 4 2 4H6',
   calendar: 'M7 4v3M17 4v3M5 9h14M6 5h12a1 1 0 0 1 1 1v12H5V6a1 1 0 0 1 1-1z',
+  box: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z',
 }
 
 export function Icon({ name, size = 18 }) {

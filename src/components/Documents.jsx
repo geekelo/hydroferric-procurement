@@ -73,7 +73,7 @@ export function RequestList({ project, openRequestId = '' }) {
         </div>
       ) : <p className="hint">{requests.length ? 'No requisitions match this search.' : 'No requisitions on this project.'}</p>}
       {openRequest ? (
-        <Modal className="request-popup" title={`${openRequest.number} · ${openRequest.title}`} onClose={() => setOpenId('')} wide>
+        <Modal className="request-popup" title={`${openRequest.number} · ${openRequest.title}`} head={<RequestPopupHead request={openRequest} project={project} />} onClose={() => setOpenId('')} wide>
           <RequestDocuments
             state={state}
             request={openRequest}
@@ -122,9 +122,25 @@ function RequestRow({ request, onOpen }) {
   )
 }
 
+function requestedAt(request) {
+  return request.history?.find((entry) => /submitted/i.test(entry.action))?.at || request.createdAt
+}
+
+function RequestPopupHead({ request, project }) {
+  return (
+    <div className="popup-id">
+      <span className="req-ico"><Icon name="file" size={18} /></span>
+      <span className="popup-copy">
+        <strong>{request.number} <span>|</span> {request.title}</strong>
+        <span>Requisition for {project?.name} · Requested on {formatWhen(requestedAt(request))}</span>
+      </span>
+      <StatusBadge map={REQUEST_STATUS} status={request.status} />
+    </div>
+  )
+}
+
 function RequisitionFacts({ state, request, project }) {
   const urgency = URGENCIES.find((item) => item.id === request.urgency)
-  const requestedAt = request.history?.find((entry) => /submitted/i.test(entry.action))?.at || request.createdAt
   const tone = request.urgency === 'critical' || request.urgency === 'high' ? 'bad' : 'info'
   return (
     <section className="req-facts">
@@ -135,11 +151,11 @@ function RequisitionFacts({ state, request, project }) {
       </div>
       <div>
         <Fact icon="project" label="Project"><a href={`#/projects/${project?.id}`}>{project?.name}</a></Fact>
-        <Fact icon="calendar" label="Date requested">{formatWhen(requestedAt)}</Fact>
+        <Fact icon="calendar" label="Date requested">{formatWhen(requestedAt(request))}</Fact>
         <Fact icon="invoice" label="Estimate (total)">{money(requestTotal(request))}</Fact>
       </div>
       <div className="req-items">
-        <h3>Items ({request.items?.length || 0})</h3>
+        <h3><Icon name="box" size={16} /> Items ({request.items?.length || 0})</h3>
         <table>
           <thead>
             <tr><th>Description</th><th>Qty</th><th>Estimate</th></tr>

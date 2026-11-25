@@ -33,7 +33,7 @@ export function Field({ label, hint, children, className = '' }) {
   )
 }
 
-export function Modal({ title, onClose, children, wide = false, className = '' }) {
+export function Modal({ title, onClose, children, wide = false, className = '', head = null }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'Escape') onClose()
@@ -52,7 +52,7 @@ export function Modal({ title, onClose, children, wide = false, className = '' }
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-head">
-          <h2>{title}</h2>
+          {head || <h2>{title}</h2>}
           <button className="icon-btn" type="button" onClick={onClose} aria-label="Close">
             ×
           </button>
