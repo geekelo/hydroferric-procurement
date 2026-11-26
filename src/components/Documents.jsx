@@ -6,7 +6,7 @@ import { useStore } from '../domain/store.jsx'
 import { requestTotal } from '../domain/workflow.js'
 import { fileSize, formatWhen, money } from '../lib/format.js'
 import { Icon } from './Icons.jsx'
-import { Field, Modal, StatusBadge } from './ui.jsx'
+import { Drawer, Field, StatusBadge } from './ui.jsx'
 
 const STATUS_ICON = {
   closed: 'check',
@@ -73,11 +73,12 @@ export function RequestList({ project, openRequestId = '' }) {
         </div>
       ) : <p className="hint">{requests.length ? 'No requisitions match this search.' : 'No requisitions on this project.'}</p>}
       {openRequest ? (
-        <Modal className="request-popup" title={`${openRequest.number} · ${openRequest.title}`} head={<RequestPopupHead request={openRequest} project={project} />} onClose={() => setOpenId('')} wide>
+        <Drawer className="request-drawer" mobile="popup" title={`${openRequest.number} · ${openRequest.title}`} head={<RequestPopupHead request={openRequest} project={project} />} onClose={() => setOpenId('')}>
           <RequestDocuments
             state={state}
             request={openRequest}
             allowed={allowed}
+            onOpenRequest={() => setOpenId('')}
             onFile={(category, file, description) => addProjectDocument({
               projectId: project.id,
               category,
@@ -87,7 +88,7 @@ export function RequestList({ project, openRequestId = '' }) {
               description,
             })}
           />
-        </Modal>
+        </Drawer>
       ) : null}
     </section>
   )
@@ -185,7 +186,7 @@ function Fact({ icon, label, children }) {
   )
 }
 
-function RequestDocuments({ state, request, allowed, onFile }) {
+function RequestDocuments({ state, request, allowed, onFile, onOpenRequest }) {
   const { approveDocument, rejectDocument, deleteDocument, setMobilizationPayment, addMobilizationReceipt } = useStore()
   const user = currentUser(state)
   const project = state.projects.find((item) => item.id === request.projectId)
@@ -223,7 +224,7 @@ function RequestDocuments({ state, request, allowed, onFile }) {
     <div className="stack">
       <RequisitionFacts state={state} request={request} project={project} />
       <CostFigures figures={requestFigures(state, request)} colorful />
-      <p className="hint desk-only"><a href={`#/requests/${request.id}`}>Open requisition</a></p>
+      <p className="hint desk-only"><a href={`#/requests/${request.id}`} onClick={onOpenRequest}>Open requisition</a></p>
       <div className="doc-mobile">
         <div className="req-chip">
           <span>
@@ -392,8 +393,8 @@ function initials(name) {
 const COST_MARKS = [
   ['approved', 'Approved cost', 'purple', 'check'],
   ['committed', 'Amount committed', 'teal', 'file'],
-  ['toBalance', 'Amount to balance', 'warn', 'audit'],
-  ['extra', 'Extra payments', 'magenta', 'pay'],
+  ['toBalance', 'Amount to balance', 'magenta', 'audit'],
+  ['extra', 'Extra payments', 'warn', 'pay'],
   ['total', 'Total cost', 'good', 'chart'],
 ]
 
@@ -536,16 +537,22 @@ export function CommentEntry({ state, request, projectId, documentId, comment })
   return (
     <article className={`comment ${comment.resolved ? 'resolved' : ''}`}>
       <span className={`avatar tone-${tone}`} aria-hidden="true">{initials(name)}</span>
-      <div>
-        <span><strong>{name}</strong> · {formatWhen(comment.at)}</span>
+      <div className="cm-body">
+        <div className="cm-meta">
+          <strong>{name}</strong>
+          <time>{formatWhen(comment.at)}</time>
+        </div>
         <p>{comment.text}</p>
       </div>
       {comment.resolved ? (
-        <span>Resolved{comment.resolvedBy ? ` by ${personName(state, comment.resolvedBy)}` : ''}{comment.resolutionNote ? ` · ${comment.resolutionNote}` : ''}{comment.hidden ? ' · Hidden from the comments list' : ''}</span>
+        <span className="cm-state done">
+          <Icon name="check" size={14} />
+          <span>Resolved{comment.resolvedBy ? ` by ${personName(state, comment.resolvedBy)}` : ''}{comment.resolutionNote ? ` · ${comment.resolutionNote}` : ''}{comment.hidden ? ' · Hidden from the comments list' : ''}</span>
+        </span>
       ) : canResolve ? (
         <ResolveForm onResolve={(note) => resolveDocumentComment(projectId, documentId, comment.id, note)} />
       ) : (
-        <span>Waiting for the HOD</span>
+        <span className="cm-state open">Waiting for the HOD</span>
       )}
       {comment.resolved && !comment.hidden && canResolve ? (
         <button className="btn btn-ghost btn-small" type="button" onClick={() => hideDocumentComment(projectId, documentId, comment.id)}>Hide</button>
@@ -577,7 +584,7 @@ function CommentComposer({ onSubmit }) {
   const [text, setText] = useState('')
   return (
     <form
-      className="upload-form"
+      className="cm-composer"
       onSubmit={(event) => {
         event.preventDefault()
         if (!text.trim()) return
@@ -585,10 +592,8 @@ function CommentComposer({ onSubmit }) {
         setText('')
       }}
     >
-      <Field label="Comment">
-        <textarea required rows={2} value={text} onChange={(event) => setText(event.target.value)} placeholder="Comment on this upload" />
-      </Field>
-      <button className="btn btn-small" type="submit">Add comment</button>
+      <textarea required rows={2} aria-label="Comment" value={text} onChange={(event) => setText(event.target.value)} placeholder="Write a comment on this upload..." />
+      <button className="btn btn-small btn-primary" type="submit">Add comment</button>
     </form>
   )
 }
@@ -599,18 +604,32 @@ export function RequestComments({ request }) {
   const comments = commentsForRequest(state, request.id)
   const unresolved = comments.filter((comment) => !comment.resolved && !comment.hidden).length
   return (
-    <section className="card stack">
-      <div className="card-head">
-        <h2>Comments</h2>
-        <span className="hint">{comments.length} {comments.length === 1 ? 'comment' : 'comments'}{unresolved ? ` · ${unresolved} new` : ''}</span>
+    <section className="card rq-card cm-card">
+      <div className="cm-head">
+        <h2 className="rq-h2"><Icon name="comment" size={20} /> Comments</h2>
+        <span className="cm-count">
+          {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+          {unresolved ? <b>{unresolved} new</b> : null}
+        </span>
       </div>
       {files.length ? files.map((file) => (
-        <article key={file.id} className="stack">
-          <strong>{file.name}</strong>
-          {file.description ? <span className="hint">{file.description}</span> : null}
+        <article key={file.id} className="cm-thread">
+          <header className="cm-file">
+            <span className="cm-file-ico"><Icon name="file" size={16} /></span>
+            <div>
+              <strong>{file.name}</strong>
+              {file.description ? <span>{file.description}</span> : null}
+            </div>
+          </header>
           <CommentThread state={state} request={request} file={file} />
         </article>
-      )) : <p className="hint">Comments appear beside each uploaded document.</p>}
+      )) : (
+        <div className="cm-empty">
+          <span className="cm-empty-ico"><Icon name="comment" size={22} /></span>
+          <strong>No comments yet</strong>
+          <span>Comments appear beside each uploaded document.</span>
+        </div>
+      )}
     </section>
   )
 }

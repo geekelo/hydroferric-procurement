@@ -16,7 +16,7 @@ import { RequestDetail } from './pages/RequestDetail.jsx'
 import { RequestForm } from './pages/RequestForm.jsx'
 import { Requests } from './pages/Requests.jsx'
 import { SupplierDetail, SupplierForm } from './pages/Suppliers.jsx'
-import { Empty } from './components/ui.jsx'
+import { Drawer, Empty } from './components/ui.jsx'
 
 function parseRoute(hash) {
   const raw = (hash || '#/overview').replace(/^#/, '')
@@ -24,19 +24,39 @@ function parseRoute(hash) {
   return { parts: path.split('/').filter(Boolean), search: new URLSearchParams(search) }
 }
 
+// A single request opens in a panel over the page the user came from.
+function isRequestPanel(hash) {
+  const [section, id, action] = parseRoute(hash).parts
+  return section === 'requests' && Boolean(id) && id !== 'new' && action !== 'edit'
+}
+
 function Workspace() {
   const { state } = useStore()
-  const [hash, setHash] = useState(() => window.location.hash || '#/overview')
+  const [nav, setNav] = useState(() => {
+    const first = window.location.hash || '#/overview'
+    return { hash: first, base: isRequestPanel(first) ? '' : first, fromPanel: false }
+  })
+  const hash = nav.hash
   useEffect(() => {
-    const onChange = () => setHash(window.location.hash || '#/overview')
+    const onChange = () => {
+      const next = window.location.hash || '#/overview'
+      setNav((prev) => ({
+        hash: next,
+        base: isRequestPanel(next) ? prev.base : next,
+        fromPanel: isRequestPanel(prev.hash) && !isRequestPanel(next),
+      }))
+    }
     window.addEventListener('hashchange', onChange)
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
-  useEffect(() => { window.scrollTo(0, 0) }, [hash])
+  const panelOpen = isRequestPanel(hash)
+  const keepScroll = panelOpen || nav.fromPanel
+  useEffect(() => {
+    if (!keepScroll) window.scrollTo(0, 0)
+  }, [hash, keepScroll])
 
   const user = currentUser(state)
-  const { parts, search } = parseRoute(hash)
-  const [section, id, action] = parts
+  const [section, id] = parseRoute(hash).parts
   const title = {
     requests: 'Requests',
     pending: 'Pending',
@@ -72,36 +92,53 @@ function Workspace() {
 
   if (!user) return <Login />
   const homeLink = <a className="btn btn-primary" href={home}>Back to your desk</a>
-  let page = desk === 'approving' ? <Pending /> : <Overview />
-  if (!section || section === 'dashboard' || section === 'approvals') {
-    page = desk === 'approving' ? <Pending /> : <Overview />
-  } else if (!pageAllowed(desk, section, id)) {
-    page = <Empty title="That page is not on your desk" action={homeLink} />
-  } else if (section === 'pending') page = <Pending />
-  else if (section === 'done') page = <Done />
-  else if (section === 'notifications') page = <Notifications />
-  else if (section === 'comments') page = <Comments />
-  else if (section === 'activity') page = <Activity />
-  else if (section === 'requests' && id === 'new') page = <RequestForm key={search.get('project') || 'new'} projectId={search.get('project') || ''} />
-  else if (section === 'requests' && action === 'edit') page = <RequestForm key={id} id={id} />
-  else if (section === 'requests' && id) page = <RequestDetail key={id} id={id} />
-  else if (section === 'requests') page = <Requests key={search.get('department') || 'all'} department={search.get('department') || ''} />
-  else if (section === 'orders' && id) page = <OrderDetail key={id} id={id} />
-  else if (section === 'suppliers' && id === 'new') page = <SupplierForm key="new" />
-  else if (section === 'suppliers' && id) page = <SupplierDetail key={id} id={id} />
-  else if (section === 'invoices' && id === 'new') page = <InvoiceForm key={search.get('po') || 'new'} poId={search.get('po') || ''} />
-  else if (section === 'invoices' && id) page = <InvoiceDetail key={id} id={id} />
-  else if (section === 'projects' && id === 'new') page = <ProjectForm key="new" />
-  else if (section === 'projects' && action === 'edit') page = <ProjectForm key={id} id={id} />
-  else if (section === 'projects' && id) page = <ProjectDetail key={id} id={id} verificationId={search.get('verification') || ''} requestId={search.get('request') || ''} />
-  else if (section === 'projects') page = <Projects />
-  else if (section === 'payments' && id) page = <PaymentRecord key={id} id={id} />
-  else if (section === 'payments') page = <Payments />
-  else if (section === 'reports') page = <Reports />
-  else if (section === 'admin') page = <Admin />
-  else if (section && section !== 'overview') page = <Empty title="That page is not on your desk" action={homeLink} />
+  const build = (target) => {
+    const route = parseRoute(target)
+    const [part, key, verb] = route.parts
+    const query = route.search
+    if (!part || part === 'dashboard' || part === 'approvals') return desk === 'approving' ? <Pending /> : <Overview />
+    if (!pageAllowed(desk, part, key)) return <Empty title="That page is not on your desk" action={homeLink} />
+    if (part === 'pending') return <Pending />
+    if (part === 'done') return <Done />
+    if (part === 'notifications') return <Notifications />
+    if (part === 'comments') return <Comments />
+    if (part === 'activity') return <Activity />
+    if (part === 'requests' && key === 'new') return <RequestForm key={query.get('project') || 'new'} projectId={query.get('project') || ''} />
+    if (part === 'requests' && verb === 'edit') return <RequestForm key={key} id={key} />
+    if (part === 'requests' && key) return <RequestDetail key={key} id={key} />
+    if (part === 'requests') return <Requests key={query.get('department') || 'all'} department={query.get('department') || ''} />
+    if (part === 'orders' && key) return <OrderDetail key={key} id={key} />
+    if (part === 'suppliers' && key === 'new') return <SupplierForm key="new" />
+    if (part === 'suppliers' && key) return <SupplierDetail key={key} id={key} />
+    if (part === 'invoices' && key === 'new') return <InvoiceForm key={query.get('po') || 'new'} poId={query.get('po') || ''} />
+    if (part === 'invoices' && key) return <InvoiceDetail key={key} id={key} />
+    if (part === 'projects' && key === 'new') return <ProjectForm key="new" />
+    if (part === 'projects' && verb === 'edit') return <ProjectForm key={key} id={key} />
+    if (part === 'projects' && key) return <ProjectDetail key={key} id={key} verificationId={query.get('verification') || ''} requestId={query.get('request') || ''} />
+    if (part === 'projects') return <Projects />
+    if (part === 'payments' && key) return <PaymentRecord key={key} id={key} />
+    if (part === 'payments') return <Payments />
+    if (part === 'reports') return <Reports />
+    if (part === 'admin') return <Admin />
+    if (part !== 'overview') return <Empty title="That page is not on your desk" action={homeLink} />
+    return desk === 'approving' ? <Pending /> : <Overview />
+  }
 
-  return <Shell hash={hash}>{page}</Shell>
+  // A request opens over the page the user came from. A direct link falls back to its project.
+  const request = panelOpen ? state.requests.find((item) => item.id === id) : null
+  const fallback = request?.projectId && desk !== 'approving' && desk !== 'accounts' ? `#/projects/${request.projectId}` : home
+  const base = panelOpen ? nav.base || fallback : hash
+  const close = () => { window.location.hash = base }
+  return (
+    <Shell hash={base}>
+      {build(base)}
+      {panelOpen ? (
+        <Drawer title={request ? request.number : 'Requisition'} onClose={close}>
+          {build(hash)}
+        </Drawer>
+      ) : null}
+    </Shell>
+  )
 }
 
 function pageAllowed(desk, section, id) {

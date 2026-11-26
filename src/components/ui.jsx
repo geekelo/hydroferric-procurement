@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { statusMeta } from '../domain/constants.js'
 
 export function Badge({ tone = 'neutral', children }) {
@@ -30,6 +30,57 @@ export function Field({ label, hint, children, className = '' }) {
       {children}
       {hint ? <small className="hint">{hint}</small> : null}
     </label>
+  )
+}
+
+// A panel that slides in from the right. On a phone it is a full page by default, or a popup when `mobile="popup"`.
+export function Drawer({ title, onClose, children, head = null, mobile = 'page', className = '' }) {
+  const panel = useRef(null)
+  const closer = useRef(onClose)
+  useEffect(() => {
+    closer.current = onClose
+  })
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === 'Escape') closer.current()
+    }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    panel.current?.focus()
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
+  return (
+    <div className={`drawer-back mobile-${mobile}`} onClick={onClose} role="presentation">
+      <aside
+        ref={panel}
+        className={`drawer ${className}`.trim()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="drawer-bar">
+          {head ? <div className="drawer-head">{head}</div> : (
+            <>
+              <button className="drawer-back-btn" type="button" onClick={onClose}>
+                <span aria-hidden="true">‹</span> Back
+              </button>
+              <strong className="drawer-title">{title}</strong>
+            </>
+          )}
+          <button className="icon-btn drawer-close" type="button" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="drawer-body">{children}</div>
+      </aside>
+    </div>
   )
 }
 

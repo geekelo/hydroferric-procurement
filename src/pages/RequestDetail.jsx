@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { QUOTE_STATUS, REQUEST_STATUS, roleLabel } from '../domain/constants.js'
+import { QUOTE_STATUS, REQUEST_STATUS, URGENCIES, roleLabel, statusMeta } from '../domain/constants.js'
 import {
   currentUser,
   invoicesForRequest,
@@ -21,7 +21,8 @@ import {
 import { fileSize, formatWhen, money } from '../lib/format.js'
 import { CostFigures, RequestComments, StepDocuments } from '../components/Documents.jsx'
 import { approvalBlock, canFileDocuments } from '../domain/documents.js'
-import { Chain, DecisionForm, Empty, Field, Notice, PageHead, StatusBadge, Timeline } from '../components/ui.jsx'
+import { Icon } from '../components/Icons.jsx'
+import { Chain, DecisionForm, Empty, Field, Notice, StatusBadge, Timeline } from '../components/ui.jsx'
 
 export function RequestDetail({ id }) {
   const store = useStore()
@@ -42,56 +43,85 @@ export function RequestDetail({ id }) {
   const canSource = ['procurement', 'admin'].includes(user.role) && ['approved', 'sourcing'].includes(request.status)
   const canClose = ['procurement', 'finance', 'admin'].includes(user.role) && request.status === 'po_issued'
 
+  const steps = [
+    { label: 'Submit', done: request.status !== 'draft' },
+    { label: 'Initial approval', done: !['draft', 'returned', 'in_approval', 'rejected'].includes(request.status) },
+    { label: 'Quotation approved', done: ['po_issued', 'closed'].includes(request.status) },
+    { label: 'Order issued', done: Boolean(order) && order?.status !== 'cancelled' },
+    { label: 'Verified and paid', done: request.status === 'closed' || invoices.some((invoice) => invoice.status === 'paid') },
+    { label: 'Closed', done: request.status === 'closed' },
+  ]
+  const urgency = URGENCIES.find((item) => item.id === request.urgency)
+  const urgencyTone = request.urgency === 'critical' || request.urgency === 'high' ? 'bad' : 'info'
+  const related = [
+    quotes.find((quote) => quote.status === 'approved' || quote.status === 'recommended') ? { href: '#/quotations', label: quotes.find((quote) => quote.status === 'approved' || quote.status === 'recommended')?.number } : null,
+    order ? { href: `#/orders/${order.id}`, label: order.number } : null,
+    invoices[0] ? { href: `#/invoices/${invoices[0].id}`, label: invoices[0].reference } : null,
+  ].filter(Boolean)
+
   return (
-    <>
-      <PageHead kicker="02 / Procurement" title={request.title} lead={request.justification}>
-        <StatusBadge map={REQUEST_STATUS} status={request.status} />
-        {['draft', 'returned'].includes(request.status) && (user.id === request.requesterId || user.role === 'admin') ? (
-          <a className="btn btn-primary" href={`#/requests/${request.id}/edit`}>Edit</a>
-        ) : null}
-      </PageHead>
-      <CostFigures figures={requestFigures(state, request)} />
-      <RequestComments request={request} />
-      <Chain links={[
-        { href: `#/requests/${request.id}`, label: request.number },
-        quotes.find((quote) => quote.status === 'approved' || quote.recommended) ? { href: `#/quotations`, label: quotes.find((quote) => quote.status === 'approved' || quote.status === 'recommended')?.number } : null,
-        order ? { href: `#/orders/${order.id}`, label: order.number } : null,
-        invoices[0] ? { href: `#/invoices/${invoices[0].id}`, label: invoices[0].reference } : null,
-      ]} />
-      <div className="steps">
-        <Step label="Submit" done={!['draft'].includes(request.status)} />
-        <Step label="Initial approval" done={!['draft', 'returned', 'in_approval', 'rejected'].includes(request.status)} />
-        <Step label="Quotation approved" done={['po_issued', 'closed'].includes(request.status)} />
-        <Step label="Order issued" done={Boolean(order) && order?.status !== 'cancelled'} />
-        <Step label="Verified and paid" done={request.status === 'closed' || invoices.some((invoice) => invoice.status === 'paid')} />
-        <Step label="Closed" done={request.status === 'closed'} />
-      </div>
-      <section className="split">
+    <div className="rq-page">
+      <nav className="crumbs" aria-label="Breadcrumb">
+        <a href={`#/projects/${project?.id}`}>{project?.name || 'Project'}</a>
+        <span aria-hidden="true">›</span>
+        <strong>{request.number}</strong>
+      </nav>
+      <header className="rq-head">
+        <div>
+          <h1>{request.title}</h1>
+          <p className="lead">{request.justification}</p>
+        </div>
+        <div className="head-actions">
+          <span className={`rq-status tone-${statusMeta(REQUEST_STATUS, request.status).tone}`}>
+            {['approved', 'closed', 'po_issued'].includes(request.status) ? <Icon name="check" size={16} /> : null}
+            {statusMeta(REQUEST_STATUS, request.status).label}
+          </span>
+          {['draft', 'returned'].includes(request.status) && (user.id === request.requesterId || user.role === 'admin') ? (
+            <a className="btn btn-primary" href={`#/requests/${request.id}/edit`}>Edit</a>
+          ) : null}
+        </div>
+      </header>
+      <CostFigures figures={requestFigures(state, request)} colorful />
+      <section className="rq-grid">
         <div className="stack">
-          <article className="card card-pad">
-            <dl className="meta">
-              <div><dt>Number</dt><dd>{request.number}</dd></div>
-              <div><dt>Requester</dt><dd>{personName(state, request.requesterId)}</dd></div>
-              <div><dt>Department</dt><dd>{request.department}</dd></div>
-              <div><dt>Project</dt><dd><a href={`#/projects/${project?.id}`}>{project?.name}</a></dd></div>
-              <div><dt>Urgency</dt><dd>{request.urgency}</dd></div>
-              <div><dt>Estimate</dt><dd>{money(requestTotal(request))}</dd></div>
-            </dl>
-            <table className="table">
-              <thead><tr><th>Description</th><th>Qty</th><th>Estimate</th></tr></thead>
-              <tbody>
-                {request.items.map((item) => (
-                  <tr key={item.id}>
-                    <td data-label="Description">{item.description}</td>
-                    <td data-label="Qty">{item.qty} {item.unit}</td>
-                    <td className="num" data-label="Estimate">{money(item.qty * item.unitCost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <article className="card rq-card">
+            <h2 className="rq-h2"><Icon name="file" size={20} /> Requisition details</h2>
+            <Progress steps={steps} />
+            <div className="rq-facts">
+              <div>
+                <RqFact icon="po" label="Number">{request.number}</RqFact>
+                <RqFact icon="layers" label="Department">{request.department}</RqFact>
+                <RqFact icon="flag" label="Urgency"><span className={`badge tone-${urgencyTone}`}>{urgency?.label || request.urgency}</span></RqFact>
+              </div>
+              <div>
+                <RqFact icon="admin" label="Requester">{personName(state, request.requesterId)}</RqFact>
+                <RqFact icon="project" label="Project"><a href={`#/projects/${project?.id}`}>{project?.name}</a></RqFact>
+                <RqFact icon="invoice" label="Estimate">{money(requestTotal(request))}</RqFact>
+              </div>
+            </div>
+            <div className="rq-items">
+              <table className="table">
+                <thead><tr><th>Description</th><th>Qty</th><th className="num">Estimate</th></tr></thead>
+                <tbody>
+                  {request.items.map((item) => (
+                    <tr key={item.id}>
+                      <td data-label="Description">{item.description}</td>
+                      <td data-label="Qty">{item.qty} {item.unit}</td>
+                      <td className="num" data-label="Estimate"><strong>{money(item.qty * item.unitCost)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {request.attachments?.length ? (
               <div className="chips">
-                {request.attachments.map((file) => <span key={file.id} className="chip">{file.name} · {fileSize(file.size)}</span>)}
+                {request.attachments.map((file) => <span key={file.id} className="chip rq-file"><Icon name="clip" size={16} />{file.name} · {fileSize(file.size)}</span>)}
+              </div>
+            ) : null}
+            {related.length ? (
+              <div className="rq-related">
+                <small>Related records</small>
+                <Chain links={related} />
               </div>
             ) : null}
           </article>
@@ -100,16 +130,17 @@ export function RequestDetail({ id }) {
           {request.status === 'approved' && canSource ? <Notice>Approved. Collect at least two supplier quotations, then recommend one.</Notice> : null}
           <QuoteBoard request={request} quotes={quotes} canSource={canSource} user={user} state={state} store={store} quoteLevel={quoteLevel} />
           {canClose ? (
-            <article className="card card-pad">
-              <h2>Close-out</h2>
+            <article className="card rq-card">
+              <h2 className="rq-h2">Close-out</h2>
               <p className="hint">Close the request once the invoice is paid and any required verification is approved.</p>
               <button className="btn btn-primary" type="button" onClick={() => store.closeRequest(request.id)}>Close request</button>
             </article>
           ) : null}
+          <RequestComments request={request} />
         </div>
         <div className="stack">
-          <article className="card card-pad">
-            <h2>Approval trail</h2>
+          <article className="card rq-card">
+            <h2 className="rq-h2"><Icon name="admin" size={20} /> Approval trail</h2>
             <LevelList state={state} levels={request.approval?.levels} />
             {request.quoteApproval ? (
               <>
@@ -118,8 +149,8 @@ export function RequestDetail({ id }) {
               </>
             ) : null}
           </article>
-          <article className="card card-pad">
-            <h2>History</h2>
+          <article className="card rq-card rq-history">
+            <h2 className="rq-h2"><Icon name="audit" size={20} /> History</h2>
             <Timeline items={[...request.history].reverse().map((item) => ({
               id: item.id,
               action: item.action,
@@ -130,34 +161,67 @@ export function RequestDetail({ id }) {
           </article>
         </div>
       </section>
-    </>
+    </div>
   )
 }
 
-function Step({ label, done }) {
-  return <div className={`step ${done ? 'done' : ''}`}><span />{label}</div>
+function Progress({ steps }) {
+  const current = steps.findIndex((step) => !step.done)
+  return (
+    <div className="rq-steps-wrap">
+      <ol className="rq-steps">
+        {steps.map((step, index) => (
+          <li key={step.label} className={step.done ? 'done' : index === current ? 'current' : ''}>
+            <span>{step.done ? <Icon name="check" size={13} /> : null}</span>
+            {step.label}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function RqFact({ icon, label, children }) {
+  return (
+    <div className="rq-fact">
+      <span className="rq-fact-ico"><Icon name={icon} size={18} /></span>
+      <span>
+        <small>{label}</small>
+        <strong>{children}</strong>
+      </span>
+    </div>
+  )
+}
+
+const LEVEL_STATUS = {
+  pending: { label: 'Waiting', tone: 'info' },
+  waiting: { label: 'Queued', tone: 'neutral' },
+  approved: { label: 'Approved', tone: 'good' },
+  rejected: { label: 'Rejected', tone: 'bad' },
+  returned: { label: 'Returned', tone: 'warn' },
 }
 
 function LevelList({ state, levels }) {
   if (!levels?.length) return <p className="hint">Not in approval.</p>
   return (
-    <ol className="levels">
-      {levels.map((level, index) => (
-        <li key={`${level.role}-${index}`}>
-          <StatusBadge map={{
-            pending: { label: 'Waiting', tone: 'info' },
-            waiting: { label: 'Queued', tone: 'neutral' },
-            approved: { label: 'Approved', tone: 'good' },
-            rejected: { label: 'Rejected', tone: 'bad' },
-            returned: { label: 'Returned', tone: 'warn' },
-          }} status={level.status} />
-          <div>
-            <strong>{roleLabel(level.role)}{level.designatedUserId ? ` · ${personName(state, level.designatedUserId)}` : ''}</strong>
-            <span>{level.actorId ? `${personName(state, level.actorId)} · ${formatWhen(level.at)}` : 'No decision yet'}</span>
-            {level.comment ? <p>{level.comment}</p> : null}
-          </div>
-        </li>
-      ))}
+    <ol className="trail">
+      {levels.map((level, index) => {
+        const who = level.actorId || level.designatedUserId
+        return (
+          <li key={`${level.role}-${index}`}>
+            <i className={`trail-dot ${level.status}`} aria-hidden="true" />
+            <span className="trail-status">
+              <StatusBadge map={LEVEL_STATUS} status={level.status} />
+            </span>
+            <div>
+              <strong>{roleLabel(level.role)}{who ? ` — ${personName(state, who)}` : ''}</strong>
+              <span>{level.actorId ? '' : 'No decision yet'}</span>
+              {level.comment ? <p>{level.comment}</p> : null}
+            </div>
+            <time>{level.at ? formatWhen(level.at) : ''}</time>
+          </li>
+        )
+      })}
     </ol>
   )
 }
@@ -283,10 +347,8 @@ function CommentBox({ requestId }) {
   const [text, setText] = useState('')
   return (
     <form className="stack" onSubmit={(event) => { event.preventDefault(); comment(requestId, text); setText('') }}>
-      <Field label="Add a comment">
-        <textarea rows={2} value={text} onChange={(event) => setText(event.target.value)} />
-      </Field>
-      <button className="btn btn-ghost btn-small" type="submit">Add to history</button>
+      <textarea rows={2} aria-label="Add a comment" placeholder="Add a comment..." value={text} onChange={(event) => setText(event.target.value)} />
+      <button className="btn btn-primary rq-add" type="submit">Add to history</button>
     </form>
   )
 }
