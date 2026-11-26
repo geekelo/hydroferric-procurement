@@ -55,6 +55,20 @@ export function fileSize(bytes) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// "2026-10" for a date, so comments can be grouped and archived by year and month.
+export function monthKey(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+// "October 2026" (long) or "Oct 2026" (short) for a "2026-10" key.
+export function monthLabel(key, short = false) {
+  const [year, month] = String(key).split('-').map(Number)
+  if (!year || !month) return ''
+  return new Date(year, month - 1, 1).toLocaleDateString('en-GB', { month: short ? 'short' : 'long', year: 'numeric' })
+}
+
 export function greeting(date = new Date()) {
   const hour = date.getHours()
   if (hour < 12) return 'Good morning'

@@ -4,7 +4,8 @@ import { canApproveDocuments, canCommentOnRequest, canFileOnProject, canMarkMobi
 import { currentUser, personName, requestFigures } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { requestTotal } from '../domain/workflow.js'
-import { fileSize, formatWhen, money } from '../lib/format.js'
+import { fileSize, formatWhen, money, monthKey, monthLabel } from '../lib/format.js'
+import { AVATAR_TONES, initials } from '../lib/people.js'
 import { Icon } from './Icons.jsx'
 import { Drawer, Field, StatusBadge } from './ui.jsx'
 
@@ -384,11 +385,6 @@ export function StepDocuments({ request, through }) {
   )
 }
 
-const AVATAR_TONES = ['purple', 'teal', 'magenta', 'good', 'info']
-
-function initials(name) {
-  return String(name || '').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '?'
-}
 
 const COST_MARKS = [
   ['approved', 'Approved cost', 'purple', 'check'],
@@ -528,7 +524,7 @@ function CommentThread({ state, request, file }) {
   )
 }
 
-export function CommentEntry({ state, request, projectId, documentId, comment }) {
+export function CommentEntry({ state, request, projectId, documentId, comment, openResolve = false }) {
   const { resolveDocumentComment, hideDocumentComment } = useStore()
   const user = currentUser(state)
   const canResolve = canResolveRequestComments(user, request)
@@ -541,43 +537,64 @@ export function CommentEntry({ state, request, projectId, documentId, comment })
         <div className="cm-meta">
           <strong>{name}</strong>
           <time>{formatWhen(comment.at)}</time>
+          {comment.resolved
+            ? <span className="cm-tag done"><Icon name="check" size={12} /> Resolved</span>
+            : <span className="cm-tag new">New</span>}
         </div>
         <p>{comment.text}</p>
       </div>
       {comment.resolved ? (
         <span className="cm-state done">
           <Icon name="check" size={14} />
-          <span>Resolved{comment.resolvedBy ? ` by ${personName(state, comment.resolvedBy)}` : ''}{comment.resolutionNote ? ` · ${comment.resolutionNote}` : ''}{comment.hidden ? ' · Hidden from the comments list' : ''}</span>
+          <span>Resolved{comment.resolvedBy ? ` by ${personName(state, comment.resolvedBy)}` : ''}{comment.resolutionNote ? ` · ${comment.resolutionNote}` : ''}{comment.archived ? ` · Archived to ${monthLabel(monthKey(comment.resolvedAt || comment.at), true)}` : ''}{comment.hidden ? ' · Hidden from the comments list' : ''}</span>
         </span>
       ) : canResolve ? (
-        <ResolveForm onResolve={(note) => resolveDocumentComment(projectId, documentId, comment.id, note)} />
+        <ResolveForm startOpen={openResolve} onResolve={(note) => resolveDocumentComment(projectId, documentId, comment.id, note)} />
       ) : (
         <span className="cm-state open">Waiting for the HOD</span>
       )}
       {comment.resolved && !comment.hidden && canResolve ? (
-        <button className="btn btn-ghost btn-small" type="button" onClick={() => hideDocumentComment(projectId, documentId, comment.id)}>Hide</button>
+        <button className="cm-hide" type="button" onClick={() => hideDocumentComment(projectId, documentId, comment.id)}>
+          <Icon name="eyeoff" size={16} /> Hide
+        </button>
       ) : null}
     </article>
   )
 }
 
-function ResolveForm({ onResolve }) {
+export function ResolveNoteForm({ onResolve, onCancel }) {
   const [note, setNote] = useState('')
   return (
     <form
-      className="upload-form"
+      className="cm-resolve"
       onSubmit={(event) => {
         event.preventDefault()
         onResolve(note.trim())
         setNote('')
       }}
     >
-      <Field label="Resolution note" hint="Optional">
+      <label className="cm-resolve-field">
+        <span>Resolution note <small>Optional</small></span>
         <textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="How this was resolved" />
-      </Field>
-      <button className="btn btn-small btn-primary" type="submit">Resolve</button>
+      </label>
+      <div className="cm-resolve-actions">
+        <button className="btn btn-small btn-ghost" type="button" onClick={() => { setNote(''); onCancel() }}>Cancel</button>
+        <button className="btn btn-small btn-primary" type="submit"><Icon name="check" size={16} /> Resolve</button>
+      </div>
     </form>
   )
+}
+
+function ResolveForm({ onResolve, startOpen = false }) {
+  const [open, setOpen] = useState(startOpen)
+  if (!open) {
+    return (
+      <button className="btn btn-small btn-primary cm-open-resolve" type="button" onClick={() => setOpen(true)}>
+        <Icon name="check" size={16} /> Resolve
+      </button>
+    )
+  }
+  return <ResolveNoteForm onResolve={onResolve} onCancel={() => setOpen(false)} />
 }
 
 function CommentComposer({ onSubmit }) {

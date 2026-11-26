@@ -78,6 +78,8 @@ export function StoreProvider({ children }) {
       addDocumentComment: (projectId, documentId, text) => dispatch({ type: 'add-document-comment', projectId, documentId, text }),
       resolveDocumentComment: (projectId, documentId, commentId, resolutionNote) => dispatch({ type: 'resolve-document-comment', projectId, documentId, commentId, resolutionNote }),
       hideDocumentComment: (projectId, documentId, commentId) => dispatch({ type: 'hide-document-comment', projectId, documentId, commentId }),
+      archiveDocumentComment: (projectId, documentId, commentId, archived = true) => dispatch({ type: 'archive-document-comment', projectId, documentId, commentId, archived }),
+      archiveCommentMonth: (month) => dispatch({ type: 'archive-comment-month', month }),
       saveUser: (user) => dispatch({ type: 'save-user', user }),
       savePolicy: (policy) => dispatch({ type: 'save-policy', policy }),
       restore: (data) => dispatch({ type: 'restore', data }),

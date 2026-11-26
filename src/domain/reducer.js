@@ -1,4 +1,4 @@
-import { uid } from '../lib/format.js'
+import { monthKey, uid } from '../lib/format.js'
 import { approvalBlock, canApproveDocuments, canCommentOnRequest, canFileDocuments, canFileOnProject, canMarkMobilizationPaid, canResolveRequestComments, DOCUMENT_STEPS, mobilizationCloseBlock, stepLock } from './documents.js'
 import { createSeed } from './seed.js'
 import {
@@ -247,6 +247,57 @@ function hideDocumentComment(state, { projectId, documentId, commentId }) {
     audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, 'Comment hidden', 'project', projectId, document.name),
     'good',
     'Resolved comment hidden from the comments list.',
+  )
+}
+
+function archiveDocumentComment(state, { projectId, documentId, commentId, archived }) {
+  const user = actor(state)
+  const { project, document } = findFiledDocument(state, projectId, documentId)
+  if (!document) return deny(state, 'Document not found.')
+  const request = state.requests.find((item) => item.id === document.requestId)
+  if (!canResolveRequestComments(user, request)) return deny(state, 'The HOD archives resolved comments on this requisition.')
+  const comment = (document.comments || []).find((item) => item.id === commentId)
+  if (!comment?.resolved) return deny(state, 'Resolve the comment before archiving it.')
+  const next = {
+    ...project,
+    documents: project.documents.map((item) => item.id === documentId ? {
+      ...item,
+      comments: item.comments.map((entry) => entry.id === commentId ? { ...entry, archived: Boolean(archived), archivedAt: archived ? nowIso() : null } : entry),
+    } : item),
+  }
+  return flash(
+    audit({ ...state, projects: mapById(state.projects, projectId, () => next) }, archived ? 'Comment archived' : 'Comment restored', 'project', projectId, document.name),
+    'good',
+    archived ? 'Comment archived by year and month.' : 'Comment restored to Resolved.',
+  )
+}
+
+// Archives every resolved comment of one month ("2026-10") that the user is allowed to manage.
+function archiveCommentMonth(state, { month }) {
+  const user = actor(state)
+  let count = 0
+  const stamp = nowIso()
+  const projects = state.projects.map((project) => ({
+    ...project,
+    documents: (project.documents || []).map((document) => {
+      if (!document.comments?.length) return document
+      const request = state.requests.find((item) => item.id === document.requestId)
+      if (!canResolveRequestComments(user, request)) return document
+      return {
+        ...document,
+        comments: document.comments.map((entry) => {
+          if (!entry.resolved || entry.hidden || entry.archived || monthKey(entry.resolvedAt || entry.at) !== month) return entry
+          count += 1
+          return { ...entry, archived: true, archivedAt: stamp }
+        }),
+      }
+    }),
+  }))
+  if (!count) return deny(state, 'No resolved comments to archive for that month.')
+  return flash(
+    audit({ ...state, projects }, 'Comments archived', 'project', 'comments', `${count} resolved ${count === 1 ? 'comment' : 'comments'} from ${month}`),
+    'good',
+    `${count} resolved ${count === 1 ? 'comment' : 'comments'} archived.`,
   )
 }
 
@@ -1788,6 +1839,10 @@ export function reducer(state, action) {
       return resolveDocumentComment(state, action)
     case 'hide-document-comment':
       return hideDocumentComment(state, action)
+    case 'archive-document-comment':
+      return archiveDocumentComment(state, action)
+    case 'archive-comment-month':
+      return archiveCommentMonth(state, action)
     case 'save-user':
       return saveUser(state, action.user)
     case 'save-policy':
