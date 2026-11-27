@@ -120,6 +120,17 @@ p { margin: 0; }
 .card-head a { font-weight: 600; text-decoration: none; }
 .stat-grid, .cards, .compare, .flow { display: grid; gap: 12px; }
 .stat-grid { grid-template-columns: repeat(4, 1fr); }
+.rs-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.rs-chip { flex: 1 1 150px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 10px 14px; background: white; border: 1px solid var(--line); border-radius: 14px; }
+.rs-chip span { color: var(--muted); font-size: 0.84rem; }
+.rs-chip b { font-family: var(--display); font-size: 1.15rem; letter-spacing: -0.03em; margin-left: auto; }
+.rs-chip em { flex-basis: 100%; color: var(--muted); font-style: normal; font-size: 0.78rem; }
+.rs-note { margin: 0; color: var(--muted); font-size: 0.82rem; }
+.rs-waiting { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin: 0; font-size: 0.9rem; }
+.rs-waiting a { color: var(--purple); font-weight: 600; }
+.rs-dept { padding: 0; overflow: hidden; }
+.rs-dept summary { cursor: pointer; padding: 10px 16px; font-weight: 700; color: var(--purple-deep); }
+.rs-dept .table-wrap { border: 0; border-radius: 0; box-shadow: none; border-top: 1px solid var(--line); }
 .stats-five { grid-template-columns: repeat(5, 1fr); }
 .stat { background: white; border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
 .stat span, .stat em { color: var(--muted); font-style: normal; font-size: 0.92rem; }
@@ -134,12 +145,21 @@ p { margin: 0; }
 .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .req-board { background: white; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .req-board .hint { margin-top: 6px; max-width: 78ch; }
-.req-tools { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; gap: 10px; align-items: center; }
+.req-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.req-tools .req-search { flex: 1 1 260px; }
+.req-tools .req-days { width: 150px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; }
+.req-date { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.86rem; }
+.req-date input { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: white; color: var(--ink); }
 .req-search { display: flex; align-items: center; gap: 8px; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: white; color: var(--muted); }
 .req-search input { border: 0; outline: 0; width: 100%; min-width: 0; background: transparent; color: var(--ink); }
 .req-tools select { border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; background: white; }
 .req-filter, .req-go, .phone-tabs, .phone-brand, .phone-bell, .phone-initials, .tabbar, .fab { display: none; }
 .req-meta { display: contents; }
+.req-dates { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 0.84rem; }
+.req-dates span { display: inline-flex; align-items: center; gap: 5px; }
+.req-dates .ico { color: #2a5c8c; }
+.req-dates b { color: var(--ink); font-weight: 600; }
+.req-dates .req-vessel { margin-left: auto; }
 .req-facts { display: grid; grid-template-columns: 1fr 1fr minmax(220px, 1.15fr); gap: 8px 18px; background: white; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
 .rq-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .crumbs { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; flex-wrap: wrap; }
@@ -457,6 +477,10 @@ p { margin: 0; }
 .pulse { display: flex; flex-direction: column; gap: 8px; }
 .pulse div { display: grid; grid-template-columns: 140px 1fr 28px; gap: 10px; align-items: center; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-grid { align-items: center; }
+.filter-grid input[type=number] { width: 150px; }
+.filter-date { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.86rem; }
+.filter-date input { width: auto; }
 .toolbar input, .toolbar select, .field input, .field select, .field textarea, .line-edit input, .line-edit select {
   border: 1px solid var(--line); background: white; border-radius: 10px; padding: 9px 11px;
 }
@@ -680,19 +704,22 @@ p { margin: 0; }
   .req-items { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
   .req-board { background: transparent; border: 0; box-shadow: none; padding: 0; }
   .req-board h2, .req-board > div > .hint { display: none; }
-  .req-tools { grid-template-columns: 1fr auto; }
+  .req-tools { display: grid; grid-template-columns: 1fr auto; }
   .req-filter { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--purple); }
-  .req-tools select { display: none; }
+  .req-tools select, .req-tools .req-days, .req-tools .req-date { display: none; }
   .req-tools.open { grid-template-columns: 1fr; }
   .req-tools.open .req-search, .req-tools.open .req-filter { grid-column: 1 / -1; }
   .req-tools.open .req-filter { width: 100%; }
-  .req-tools.open select { display: block; width: 100%; }
+  .req-tools.open select, .req-tools.open .req-days { display: block; width: 100%; }
+  .req-tools.open .req-date { display: flex; justify-content: space-between; }
   .request-row { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; border-left-width: 4px; }
   .request-row.status-approved, .request-row.status-po_issued, .request-row.status-sourcing { border-left-color: var(--purple); }
   .request-row.status-recommended, .request-row.status-in_approval { border-left-color: #4b7498; }
   .request-row.status-rejected, .request-row.status-cancelled, .request-row.status-returned { border-left-color: var(--magenta); }
   .request-row.status-closed, .request-row.status-draft { border-left-color: #c5d4e4; }
-  .req-ico { grid-column: 1; grid-row: 1 / span 2; }
+  .req-ico { grid-column: 1; grid-row: 1 / span 3; }
+  .req-dates { grid-column: 2 / -1; grid-row: 3; gap: 2px 12px; }
+  .req-dates .req-vessel { margin-left: 0; flex-basis: 100%; }
   .req-id { grid-column: 2; grid-row: 1; }
   .req-status { grid-column: 3; grid-row: 1; justify-self: end; }
   .req-meta { display: flex; grid-column: 2; grid-row: 2; gap: 10px; align-items: center; flex-wrap: wrap; }

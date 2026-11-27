@@ -152,17 +152,18 @@ export function createSeed() {
   ]
 
   const suppliers = [
-    { id: 's-sahel', name: 'Sahel Pumps & Valves Ltd', category: 'Pumps and valves', contactName: 'Halima Bello', email: 'sales@sahelpumps.example', phone: '+234 809 441 2201', address: '14 Industrial Crescent, Kaduna', taxId: 'TIN-2281901', status: 'active', documents: ['Certificate of incorporation', 'Tax clearance 2026'] },
-    { id: 's-nde', name: 'Niger Delta Electrical Co.', category: 'Electrical', contactName: 'Emeka Briggs', email: 'tenders@nde-electrical.example', phone: '+234 803 552 1190', address: '8 Trans-Amadi Road, Port Harcourt', taxId: 'TIN-1102844', status: 'active', documents: ['Certificate of incorporation'] },
-    { id: 's-atlantic', name: 'Atlantic Chemicals Ltd', category: 'Chemicals', contactName: 'Rita Okon', email: 'accounts@atlanticchem.example', phone: '+234 701 883 0042', address: 'Plot 9, Chemical Lane, Lagos', taxId: 'TIN-7741200', status: 'active', documents: ['Product safety sheets', 'Tax clearance 2026'] },
-    { id: 's-summit', name: 'Summit Safety Supplies', category: 'Safety', contactName: 'Bola Adewale', email: 'accounts@summitsafety.example', phone: '+234 802 330 7781', address: '22 Garki Commercial, Abuja', taxId: 'TIN-3301988', status: 'active', documents: ['Certificate of incorporation'] },
-    { id: 's-blue', name: 'BluePeak Instrumentation', category: 'Instrumentation', contactName: 'Samuel Lar', email: '', phone: '+234 809 100 4420', address: '3 Rayfield Close, Jos', taxId: 'TIN-9088123', status: 'active', documents: ['Calibration certificate'] },
-    { id: 's-metro', name: 'Metro Civil Works Ltd', category: 'Civil works', contactName: 'Grace Danjuma', email: 'projects@metrocivil.example', phone: '+234 803 221 9090', address: '18 Ahmadu Bello Way, Kaduna', taxId: 'TIN-5510021', status: 'active', documents: ['Certificate of incorporation', 'PENCOM certificate'] },
+    { id: 's-sahel', paymentTerms: 'monthly', paymentDays: null, name: 'Sahel Pumps & Valves Ltd', category: 'Pumps and valves', contactName: 'Halima Bello', email: 'sales@sahelpumps.example', phone: '+234 809 441 2201', address: '14 Industrial Crescent, Kaduna', taxId: 'TIN-2281901', status: 'active', documents: ['Certificate of incorporation', 'Tax clearance 2026'] },
+    { id: 's-nde', paymentTerms: 'every2weeks', paymentDays: null, name: 'Niger Delta Electrical Co.', category: 'Electrical', contactName: 'Emeka Briggs', email: 'tenders@nde-electrical.example', phone: '+234 803 552 1190', address: '8 Trans-Amadi Road, Port Harcourt', taxId: 'TIN-1102844', status: 'active', documents: ['Certificate of incorporation'] },
+    { id: 's-atlantic', paymentTerms: 'days', paymentDays: 30, name: 'Atlantic Chemicals Ltd', category: 'Chemicals', contactName: 'Rita Okon', email: 'accounts@atlanticchem.example', phone: '+234 701 883 0042', address: 'Plot 9, Chemical Lane, Lagos', taxId: 'TIN-7741200', status: 'active', documents: ['Product safety sheets', 'Tax clearance 2026'] },
+    { id: 's-summit', paymentTerms: 'eom', paymentDays: null, name: 'Summit Safety Supplies', category: 'Safety', contactName: 'Bola Adewale', email: 'accounts@summitsafety.example', phone: '+234 802 330 7781', address: '22 Garki Commercial, Abuja', taxId: 'TIN-3301988', status: 'active', documents: ['Certificate of incorporation'] },
+    { id: 's-blue', paymentTerms: 'yearly', paymentDays: null, name: 'BluePeak Instrumentation', category: 'Instrumentation', contactName: 'Samuel Lar', email: '', phone: '+234 809 100 4420', address: '3 Rayfield Close, Jos', taxId: 'TIN-9088123', status: 'active', documents: ['Calibration certificate'] },
+    { id: 's-metro', paymentTerms: 'days', paymentDays: 45, name: 'Metro Civil Works Ltd', category: 'Civil works', contactName: 'Grace Danjuma', email: 'projects@metrocivil.example', phone: '+234 803 221 9090', address: '18 Ahmadu Bello Way, Kaduna', taxId: 'TIN-5510021', status: 'active', documents: ['Certificate of incorporation', 'PENCOM certificate'] },
   ]
 
   const requests = [
     {
       id: 'req-closed',
+      vessel: 'Kaduna clarifier and dosing',
       number: 'PR-2026-0001',
       title: 'Treatment chemicals for Kaduna dosing',
       department: 'Projects',
@@ -193,6 +194,7 @@ export function createSeed() {
     },
     {
       id: 'req-partial',
+      vessel: 'Head office plant room',
       number: 'PR-2026-0002',
       title: 'Head office safety kit refresh',
       department: 'Administration',
@@ -222,6 +224,7 @@ export function createSeed() {
     },
     {
       id: 'req-pay',
+      vessel: 'Jos wave one',
       number: 'PR-2026-0003',
       title: 'Jos zone cable and customer meters',
       department: 'Projects',
@@ -253,6 +256,7 @@ export function createSeed() {
     },
     {
       id: 'req-verify',
+      vessel: 'Rumukwurushi tie-in',
       number: 'PR-2026-0004',
       title: 'Isolation valves for the Port Harcourt line',
       department: 'Engineering',
@@ -289,6 +293,7 @@ export function createSeed() {
     },
     {
       id: 'req-recommend',
+      vessel: 'Kaduna clarifier 2',
       number: 'PR-2026-0005',
       title: 'Clarifier spares for Kaduna',
       department: 'Projects',
@@ -319,6 +324,7 @@ export function createSeed() {
     },
     {
       id: 'req-sourcing',
+      vessel: 'Kaduna generator house',
       number: 'PR-2026-0006',
       title: 'Head office generator overhaul',
       department: 'Administration',
@@ -347,6 +353,7 @@ export function createSeed() {
     },
     {
       id: 'req-source',
+      vessel: 'Kaduna dosing skid',
       number: 'PR-2026-0007',
       title: 'Kaduna chemical dosing skid',
       department: 'Projects',
@@ -405,6 +412,7 @@ export function createSeed() {
     },
     {
       id: 'req-review',
+      vessel: 'Head office plant room',
       number: 'PR-2026-0009',
       title: 'Safety signage for the head office plant room',
       department: 'Administration',

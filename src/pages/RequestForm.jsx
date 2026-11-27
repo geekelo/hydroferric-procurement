@@ -16,6 +16,7 @@ export function RequestForm({ id, projectId: preferredProject = '' }) {
   const [department, setDepartment] = useState(existing?.department || user.department)
   const [projectId, setProjectId] = useState(existing?.projectId || preferredProject || state.projects[0]?.id || '')
   const [urgency, setUrgency] = useState(existing?.urgency || 'normal')
+  const [vessel, setVessel] = useState(existing?.vessel || '')
   const [justification, setJustification] = useState(existing?.justification || '')
   const [items, setItems] = useState(existing?.items?.map((item) => ({ ...item, unitCost: item.unitCost })) || [emptyLine('line-1')])
   const [attachments, setAttachments] = useState(existing?.attachments || [])
@@ -39,6 +40,7 @@ export function RequestForm({ id, projectId: preferredProject = '' }) {
       department,
       projectId,
       urgency,
+      vessel,
       justification,
       items: items.map((item) => ({ ...item, qty: Number(item.qty), unitCost: Number(item.unitCost) })),
       attachments,
@@ -83,6 +85,7 @@ export function RequestForm({ id, projectId: preferredProject = '' }) {
               {URGENCIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
           </Field>
+          <Field label="Vessel where used" hint="Optional. The name of the vessel or unit the items are for."><input value={vessel} onChange={(event) => setVessel(event.target.value)} placeholder="e.g. Kaduna clarifier 2" /></Field>
           <Field label="Justification" className="span-2">
             <textarea rows={3} value={justification} onChange={(event) => setJustification(event.target.value)} required />
           </Field>

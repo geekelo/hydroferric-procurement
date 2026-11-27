@@ -1,166 +1,16 @@
-import { REQUEST_STATUS, statusMeta } from '../domain/constants.js'
-import { deskOf } from '../domain/desk.js'
 import {
   currentUser,
   requestById,
   decidedItems,
-  departmentRollup,
-  effectiveInvoiceStatus,
-  myTasks,
   pendingItems,
   personName,
-  projectById,
-  projectFigures,
-  supplierById,
-  visibleProjects,
-  visibleRequests,
 } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
-import { disbursed, invoiceOutstanding } from '../domain/workflow.js'
-import { formatWhen, money } from '../lib/format.js'
+import { formatWhen } from '../lib/format.js'
 import { StepDocuments } from '../components/Documents.jsx'
 import { approvalBlock } from '../domain/documents.js'
 import { DecisionForm, Empty, PageHead } from '../components/ui.jsx'
 import { useState } from 'react'
-
-export function Overview() {
-  const { state } = useStore()
-  const user = currentUser(state)
-  const desk = deskOf(user)
-  if (desk === 'accounts') return <AccountsOverview state={state} />
-  if (desk === 'executive' || desk === 'admin') return <CompanyOverview state={state} user={user} />
-  return <DepartmentOverview state={state} user={user} />
-}
-
-function DepartmentOverview({ state, user }) {
-  const requests = visibleRequests(state, user)
-  const open = requests.filter((request) => !['closed', 'rejected', 'cancelled', 'draft'].includes(request.status))
-  const mine = user.role === 'procurement'
-    ? requests.filter((request) => ['approved', 'sourcing', 'recommended'].includes(request.status)).length
-    : requests.filter((request) => request.status === 'draft' || request.status === 'returned').length
-  const projects = visibleProjects(state, user)
-  const lead = user.role === 'procurement'
-    ? 'Requisitions that have reached procurement, across the departments that raised them.'
-    : `Requisitions and projects for ${user.department}.`
-  return (
-    <>
-      <PageHead kicker={user.role === 'procurement' ? 'Procurement' : user.department} title="Overview" lead={lead} />
-      <section className="stat-grid">
-        <Stat label="Open" value={open.length} />
-        <Stat label={user.role === 'procurement' ? 'To source' : 'Drafts and returns'} value={mine} />
-        <Stat label="Projects" value={projects.length} />
-        <Stat label="Closed" value={requests.filter((request) => request.status === 'closed').length} />
-      </section>
-      <section className="card card-pad">
-        <div className="card-head"><h2>Requests</h2><a href="#/requests">All requests</a></div>
-        <RecordList
-          rows={requests.slice().sort((a, b) => b.number.localeCompare(a.number)).slice(0, 6)}
-          empty="No requisitions for this department yet."
-          render={(request) => (
-            <a key={request.id} className="task" href={`#/requests/${request.id}`}>
-              <strong>{request.number} · {request.title}</strong>
-              <span>{statusMeta(REQUEST_STATUS, request.status).label} · {projectById(state, request.projectId)?.name}</span>
-            </a>
-          )}
-        />
-      </section>
-      <ProjectBars state={state} projects={projects} />
-    </>
-  )
-}
-
-function AccountsOverview({ state }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const overdue = state.invoices.filter((invoice) => effectiveInvoiceStatus(invoice, today) === 'overdue')
-  const overdueValue = overdue.reduce((sum, invoice) => sum + invoiceOutstanding(invoice), 0)
-  const toConfirm = state.payments.filter((payment) => payment.status === 'authorised' && Number(payment.approvedAmount) - disbursed(payment) > 0)
-  const confirmed = state.payments.filter((payment) => disbursed(payment) > 0)
-  const projects = state.projects.filter((project) => state.payments.some((payment) => payment.projectId === project.id) || state.invoices.some((invoice) => invoice.projectId === project.id))
-  return (
-    <>
-      <PageHead kicker="Accounts" title="Overview" lead="What is due, what is authorised, and what has been recorded against each project." />
-      <section className="stat-grid">
-        <Stat label="Overdue" value={money(overdueValue)} note={overdue.length ? `${overdue.length} invoice${overdue.length === 1 ? '' : 's'}` : 'None past due'} />
-        <Stat label="To record" value={toConfirm.length} />
-        <Stat label="Recorded" value={confirmed.length} />
-        <Stat label="Projects" value={projects.length} />
-      </section>
-      <section className="card card-pad">
-        <div className="card-head"><h2>Payments</h2><a href="#/payments">Payment desk</a></div>
-        <RecordList
-          rows={state.payments}
-          empty="No payments recorded yet."
-          render={(payment) => (
-            <a key={payment.id} className="task" href={`#/payments/${payment.id}`}>
-              <strong>{payment.number} · {supplierById(state, payment.supplierId)?.name}</strong>
-              <span>{money(disbursed(payment))} recorded of {money(payment.approvedAmount)} · {projectById(state, payment.projectId)?.name}</span>
-            </a>
-          )}
-        />
-      </section>
-      <ProjectBars state={state} projects={projects} />
-    </>
-  )
-}
-
-function CompanyOverview({ state, user }) {
-  const waiting = myTasks(state, user).filter((task) => task.kind === 'decision')
-  const rows = departmentRollup(state)
-  return (
-    <>
-      <PageHead kicker="All departments" title="Overview" lead="Open requisitions, commitments and spend for every department." />
-      {waiting.length ? (
-        <section className="card card-pad">
-          <div className="card-head"><h2>Waiting for you</h2></div>
-          {waiting.map((task) => (
-            <a key={task.id} className="task" href={task.href}>
-              <strong>{task.title}</strong>
-              <span>{task.detail}</span>
-            </a>
-          ))}
-        </section>
-      ) : null}
-      <div className="table-wrap card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Department</th>
-              <th>Requests</th>
-              <th>Open</th>
-              <th>Amount committed</th>
-              <th>Total cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.department}>
-                <td data-label="Department"><a className="link" href={`#/requests?department=${encodeURIComponent(row.department)}`}>{row.department}</a></td>
-                <td data-label="Requests">{row.requests}</td>
-                <td data-label="Open">{row.open}</td>
-                <td data-label="Amount committed">{money(row.committed)}</td>
-                <td data-label="Total cost">{money(row.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <section className="card card-pad">
-        <div className="card-head"><h2>Latest activity</h2><a href="#/activity">Activity</a></div>
-        <ul className="timeline compact">
-          {[...state.audit].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 5).map((item) => (
-            <li key={item.id}>
-              <div>
-                <strong>{item.action}</strong>
-                <span>{personName(state, item.actorId)} · {formatWhen(item.at)}</span>
-              </div>
-              <p>{item.detail}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </>
-  )
-}
 
 export function Pending() {
   const { state } = useStore()
@@ -297,48 +147,5 @@ export function Activity() {
         ))}
       </ul>
     </>
-  )
-}
-
-function ProjectBars({ state, projects }) {
-  if (!projects.length) return null
-  return (
-    <section className="card card-pad">
-      <div className="card-head"><h2>Projects</h2><a href="#/projects">All projects</a></div>
-      <div className="stack">
-        {projects.map((project) => {
-          const figures = projectFigures(state, project.id)
-          const committed = figures.budget ? Math.min(100, (figures.committed / figures.budget) * 100) : 0
-          const actual = figures.budget ? Math.min(100, (figures.actual / figures.budget) * 100) : 0
-          return (
-            <a key={project.id} className="budget-row" href={`#/projects/${project.id}`}>
-              <div>
-                <strong>{project.name}</strong>
-                <span>{money(figures.committed)} committed · {money(figures.total)} total cost</span>
-              </div>
-              <div className="bar" aria-hidden="true">
-                <b style={{ width: `${committed}%` }} />
-                <i style={{ width: `${actual}%` }} />
-              </div>
-            </a>
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
-function RecordList({ rows, empty, render }) {
-  if (!rows.length) return <p className="hint">{empty}</p>
-  return <div className="stack">{rows.map(render)}</div>
-}
-
-function Stat({ label, value, note }) {
-  return (
-    <article className="stat">
-      <span>{label}</span>
-      <b>{value}</b>
-      {note ? <em>{note}</em> : null}
-    </article>
   )
 }

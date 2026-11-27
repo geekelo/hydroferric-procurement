@@ -5,7 +5,7 @@ import { currentUser } from './domain/selectors.js'
 import { deskOf, homeHash } from './domain/desk.js'
 import { Admin } from './pages/Admin.jsx'
 import { Comments } from './pages/Comments.jsx'
-import { Activity, Done, Notifications, Overview, Pending } from './pages/Dashboard.jsx'
+import { Activity, Done, Notifications, Pending } from './pages/Dashboard.jsx'
 import { InvoiceDetail, InvoiceForm } from './pages/Invoices.jsx'
 import { Login } from './pages/Login.jsx'
 import { OrderDetail } from './pages/Orders.jsx'
@@ -19,7 +19,7 @@ import { SupplierDetail, SupplierForm } from './pages/Suppliers.jsx'
 import { Drawer, Empty } from './components/ui.jsx'
 
 function parseRoute(hash) {
-  const raw = (hash || '#/overview').replace(/^#/, '')
+  const raw = (hash || '#/').replace(/^#/, '')
   const [path, search = ''] = raw.split('?')
   return { parts: path.split('/').filter(Boolean), search: new URLSearchParams(search) }
 }
@@ -33,13 +33,13 @@ function isRequestPanel(hash) {
 function Workspace() {
   const { state } = useStore()
   const [nav, setNav] = useState(() => {
-    const first = window.location.hash || '#/overview'
+    const first = window.location.hash || '#/'
     return { hash: first, base: isRequestPanel(first) ? '' : first, fromPanel: false }
   })
   const hash = nav.hash
   useEffect(() => {
     const onChange = () => {
-      const next = window.location.hash || '#/overview'
+      const next = window.location.hash || '#/'
       setNav((prev) => ({
         hash: next,
         base: isRequestPanel(next) ? prev.base : next,
@@ -72,17 +72,16 @@ function Workspace() {
     payments: 'Payments',
     reports: 'Reports',
     admin: 'Users and roles',
-    overview: 'Overview',
-  }[section] || 'Overview'
+  }[section] || 'Requisitions'
   useEffect(() => {
     document.title = `${user ? title : 'Sign in'} · Hydroferric Requisitions`
   }, [title, user])
 
   const desk = deskOf(user)
-  const home = user ? homeHash(user) : '#/overview'
+  const home = user ? homeHash(user) : '#/'
   useEffect(() => {
     if (!user) return
-    if (!section || section === 'dashboard' || section === 'approvals' && desk !== 'approving') {
+    if (!section || section === 'overview' || section === 'dashboard' || section === 'approvals' && desk !== 'approving') {
       if (window.location.hash !== home) window.location.hash = home
     }
     if (section === 'approvals' && desk === 'approving' && window.location.hash !== '#/pending') {
@@ -96,7 +95,7 @@ function Workspace() {
     const route = parseRoute(target)
     const [part, key, verb] = route.parts
     const query = route.search
-    if (!part || part === 'dashboard' || part === 'approvals') return desk === 'approving' ? <Pending /> : <Overview />
+    if (!part || part === 'overview' || part === 'dashboard' || part === 'approvals') return build(home)
     if (!pageAllowed(desk, part, key)) return <Empty title="That page is not on your desk" action={homeLink} />
     if (part === 'pending') return <Pending />
     if (part === 'done') return <Done />
@@ -120,8 +119,7 @@ function Workspace() {
     if (part === 'payments') return <Payments />
     if (part === 'reports') return <Reports />
     if (part === 'admin') return <Admin />
-    if (part !== 'overview') return <Empty title="That page is not on your desk" action={homeLink} />
-    return desk === 'approving' ? <Pending /> : <Overview />
+    return <Empty title="That page is not on your desk" action={homeLink} />
   }
 
   // A request opens over the page the user came from. A direct link falls back to its project.
@@ -145,10 +143,10 @@ function pageAllowed(desk, section, id) {
   if (!section || section === 'overview' || section === 'dashboard' || section === 'approvals') return true
   const lists = {
     approving: ['pending', 'done', 'notifications', 'comments'],
-    department: ['overview', 'projects', 'requests', 'notifications', 'comments', 'reports'],
-    accounts: ['overview', 'notifications', 'comments', 'payments', 'projects', 'reports'],
-    executive: ['overview', 'activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports'],
-    admin: ['overview', 'activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports', 'admin'],
+    department: ['projects', 'requests', 'notifications', 'comments', 'reports'],
+    accounts: ['notifications', 'comments', 'payments', 'projects', 'reports'],
+    executive: ['activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports'],
+    admin: ['activity', 'projects', 'notifications', 'comments', 'requests', 'payments', 'reports', 'admin'],
   }
   if ((lists[desk] || []).includes(section)) return true
   if (section === 'requests' && id === 'new') return desk === 'department' || desk === 'admin'

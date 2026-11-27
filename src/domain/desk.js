@@ -10,7 +10,11 @@ export function deskOf(user) {
 }
 
 export function homeHash(user) {
-  return deskOf(user) === 'approving' ? '#/pending' : '#/overview'
+  const desk = deskOf(user)
+  if (desk === 'approving') return '#/pending'
+  if (desk === 'accounts') return '#/payments'
+  if (desk === 'executive' || desk === 'admin') return '#/reports'
+  return '#/projects'
 }
 
 export function deskLabel(user) {
@@ -33,14 +37,12 @@ const NAV = {
     { href: '#/requests', label: 'Requests', icon: 'file' },
     { href: '#/notifications', label: 'Notifications', icon: 'bell', badge: 'notes' },
     { href: '#/reports', label: 'Reports', icon: 'chart' },
-    { href: '#/overview', label: 'Overview', icon: 'grid' },
   ],
   accounts: [
     { href: '#/notifications', label: 'Notifications', icon: 'bell', badge: 'notes' },
     { href: '#/payments', label: 'Payments', icon: 'pay' },
     { href: '#/projects', label: 'Projects', icon: 'project' },
     { href: '#/reports', label: 'Reports', icon: 'chart' },
-    { href: '#/overview', label: 'Overview', icon: 'grid' },
   ],
   executive: [
     { href: '#/activity', label: 'Activity', icon: 'audit' },
@@ -49,7 +51,6 @@ const NAV = {
     { href: '#/requests', label: 'Requests', icon: 'file' },
     { href: '#/payments', label: 'Payments', icon: 'pay' },
     { href: '#/reports', label: 'Reports', icon: 'chart' },
-    { href: '#/overview', label: 'Overview', icon: 'grid' },
   ],
 }
 
@@ -68,7 +69,7 @@ export function navFor(user) {
 
 export function reportKinds(user) {
   const desk = deskOf(user)
-  if (desk === 'accounts') return ['disbursements', 'invoices']
+  if (desk === 'accounts') return ['disbursements', 'invoices', 'requests']
   if (desk === 'department') return ['requests', 'projects']
   return ['requests', 'disbursements', 'projects']
 }

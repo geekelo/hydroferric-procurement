@@ -4,9 +4,10 @@ import { canApproveDocuments, canCommentOnRequest, canFileOnProject, canMarkMobi
 import { currentUser, personName, requestFigures } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { requestTotal } from '../domain/workflow.js'
-import { fileSize, formatWhen, money, monthKey, monthLabel } from '../lib/format.js'
+import { fileSize, formatDate, formatWhen, money, monthKey, monthLabel } from '../lib/format.js'
 import { AVATAR_TONES, initials } from '../lib/people.js'
 import { Icon } from './Icons.jsx'
+import { PAYMENT_TERMS, requestDates, requestMatches, requestTermMatches, requestVendorIds, vesselsOf } from '../domain/filters.js'
 import { Drawer, Field, StatusBadge } from './ui.jsx'
 
 const STATUS_ICON = {
@@ -27,12 +28,25 @@ export function RequestList({ project, openRequestId = '' }) {
   const [status, setStatus] = useState('all')
   const [sort, setSort] = useState('newest')
   const [filters, setFilters] = useState(false)
-  const allowed = canFileOnProject(currentUser(state), project)
+  const [vendor, setVendor] = useState('')
+  const [vessel, setVessel] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [terms, setTerms] = useState('')
+  const [days, setDays] = useState('')
+  const user = currentUser(state)
+  const allowed = canFileOnProject(user, project)
+  const showTerms = ['finance', 'admin'].includes(user.role)
   const requests = state.requests.filter((request) => request.projectId === project.id)
-  const needle = query.trim().toLowerCase()
+  const vessels = vesselsOf(requests)
+  const vendors = [...new Set(requests.flatMap((request) => [...requestVendorIds(state, request)]))]
+    .map((id) => state.suppliers.find((item) => item.id === id))
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name))
   const shown = requests
     .filter((request) => status === 'all' || request.status === status)
-    .filter((request) => !needle || `${request.number} ${request.title}`.toLowerCase().includes(needle))
+    .filter((request) => requestMatches(state, request, { keyword: query, from, to, vessel, vendor }))
+    .filter((request) => requestTermMatches(state, request, terms, days))
     .sort((a, b) => {
       const diff = new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
       if (diff) return sort === 'newest' ? -diff : diff
@@ -52,7 +66,7 @@ export function RequestList({ project, openRequestId = '' }) {
       <div className={`req-tools ${filters ? 'open' : ''}`}>
         <label className="req-search">
           <Icon name="search" size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search requisition (e.g. PR-2026-0001)" aria-label="Search requisitions" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search number, title, vessel or vendor" aria-label="Search requisitions" />
         </label>
         <button className="req-filter" type="button" aria-expanded={filters} aria-label="Filter requisitions" onClick={() => setFilters((value) => !value)}>
           <Icon name="filter" size={18} />
@@ -65,6 +79,33 @@ export function RequestList({ project, openRequestId = '' }) {
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
+        <select aria-label="Vendor" value={vendor} onChange={(event) => setVendor(event.target.value)}>
+          <option value="">All vendors</option>
+          {vendors.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
+        </select>
+        <select aria-label="Vessel where used" value={vessel} onChange={(event) => setVessel(event.target.value)} disabled={!vessels.length}>
+          <option value="">All vessels</option>
+          {vessels.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        {showTerms ? (
+          <>
+            <select aria-label="Payment terms" value={terms} onChange={(event) => { setTerms(event.target.value); if (event.target.value !== 'days') setDays('') }}>
+              <option value="">All payment terms</option>
+              {PAYMENT_TERMS.map((term) => <option key={term.id} value={term.id}>{term.label}</option>)}
+            </select>
+            {terms === 'days' ? (
+              <input className="req-days" type="number" min="1" value={days} onChange={(event) => setDays(event.target.value)} placeholder="Number of days" aria-label="Number of days" />
+            ) : null}
+          </>
+        ) : null}
+        <label className="req-date">
+          <span>Started from</span>
+          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Started from" />
+        </label>
+        <label className="req-date">
+          <span>to</span>
+          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="Started to" />
+        </label>
       </div>
       {shown.length ? (
         <div className="stack">
@@ -72,7 +113,7 @@ export function RequestList({ project, openRequestId = '' }) {
             <RequestRow key={request.id} request={request} onOpen={() => setOpenId(request.id)} />
           ))}
         </div>
-      ) : <p className="hint">{requests.length ? 'No requisitions match this search.' : 'No requisitions on this project.'}</p>}
+      ) : <p className="hint">{requests.length ? 'No requisitions match these filters.' : 'No requisitions on this project.'}</p>}
       {openRequest ? (
         <Drawer className="request-drawer" mobile="popup" title={`${openRequest.number} · ${openRequest.title}`} head={<RequestPopupHead request={openRequest} project={project} />} onClose={() => setOpenId('')}>
           <RequestDocuments
@@ -100,6 +141,7 @@ function RequestRow({ request, onOpen }) {
   const comments = commentsForRequest(state, request.id)
   const unresolved = comments.filter((comment) => !comment.resolved && !comment.hidden).length
   const meta = statusMeta(REQUEST_STATUS, request.status)
+  const dates = requestDates(state, request)
   return (
     <button className={`request-row status-${request.status}`} type="button" onClick={onOpen}>
       <span className="req-ico"><Icon name="file" size={18} /></span>
@@ -118,6 +160,12 @@ function RequestRow({ request, onOpen }) {
       <span className={`badge tone-${meta.tone} req-status`}>
         {STATUS_ICON[request.status] ? <Icon name={STATUS_ICON[request.status]} size={13} /> : null}
         {meta.label}
+      </span>
+      <span className="req-dates">
+        <span><Icon name="calendar" size={14} /> Start <b>{formatDate(dates.start)}</b></span>
+        <span><Icon name="flag" size={14} /> End <b>{formatDate(dates.end)}</b></span>
+        <span><Icon name="check" size={14} /> Paid <b>{formatDate(dates.paid)}</b></span>
+        {request.vessel ? <span className="req-vessel"><Icon name="box" size={14} /> {request.vessel}</span> : null}
       </span>
       <span className="req-go" aria-hidden="true"><Icon name="chevron" size={16} /></span>
     </button>

@@ -104,7 +104,7 @@ export function ProjectDetail({ id, verificationId, requestId = '' }) {
       </PageHead>
       <nav className="phone-tabs" aria-label="Project sections">
         <span className="on"><Icon name="file" size={16} /> Requests</span>
-        {navFor(user).filter((item) => item.href === '#/overview' || item.href === '#/reports').map((item) => (
+        {navFor(user).filter((item) => item.href === '#/reports').map((item) => (
           <a key={item.href} href={item.href}><Icon name={item.icon} size={16} /> {item.label}</a>
         ))}
       </nav>

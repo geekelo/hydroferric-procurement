@@ -46,7 +46,7 @@ export function Shell({ hash, children }) {
         </a>
         <nav>
           {navFor(user).map((item) => {
-            const active = path === item.href || (item.href !== home && path.startsWith(`${item.href}/`))
+            const active = path === item.href || path.startsWith(`${item.href}/`)
             const count = item.badge === 'pending' ? pending : item.badge === 'notes' ? unread : item.badge === 'comments' ? openComments : 0
             return (
               <a key={item.href} className={`nav-link ${active ? 'active' : ''}`} href={item.href}>
@@ -88,7 +88,7 @@ export function Shell({ hash, children }) {
           ) : null}
         </header>
         <div className="page">{children}</div>
-        <PhoneTabs hash={path} home={home} user={user} onMore={() => setOpen(true)} />
+        <PhoneTabs hash={path} user={user} onMore={() => setOpen(true)} />
       </div>
       {state.flash ? <div className={`toast tone-${state.flash.tone === 'bad' ? 'bad' : 'good'}`} role="status">{state.flash.text}</div> : null}
       {delegateOpen ? (
@@ -110,13 +110,13 @@ function initials(name) {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
 }
 
-function PhoneTabs({ hash, home, user, onMore }) {
+function PhoneTabs({ hash, user, onMore }) {
   const nav = navFor(user)
   const shown = nav.length > 5 ? nav.slice(0, 4) : nav
   return (
     <nav className="tabbar" aria-label="Menu">
       {shown.map((item) => {
-        const active = hash === item.href || (item.href !== home && hash.startsWith(`${item.href}/`))
+        const active = hash === item.href || hash.startsWith(`${item.href}/`)
         return (
           <a key={item.href} className={active ? 'on' : ''} href={item.href}>
             <Icon name={item.icon} size={18} />

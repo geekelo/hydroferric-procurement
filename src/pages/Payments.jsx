@@ -4,6 +4,7 @@ import { currentUser, personName, supplierById } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { disbursed, invoiceOutstanding, lockedAmount, pendingLevel, userMayDecide, alreadyActed } from '../domain/workflow.js'
 import { formatDate, formatWhen, money, todayISO } from '../lib/format.js'
+import { PAYMENT_TERMS, paymentTermLabel, supplierTermMatches } from '../domain/filters.js'
 import { DecisionForm, Empty, Field, Notice, PageHead, StatusBadge, Timeline } from '../components/ui.jsx'
 
 function shift(days) {
@@ -18,13 +19,16 @@ export function Payments() {
   const [from, setFrom] = useState(shift(-45))
   const [to, setTo] = useState(shift(30))
   const [picked, setPicked] = useState({})
+  const [terms, setTerms] = useState('')
+  const [days, setDays] = useState('')
   const finance = ['finance', 'admin'].includes(user.role)
   const own = new Set(state.requests.filter((request) => request.requesterId === user.id).map((request) => request.id))
   const eligible = useMemo(() => state.invoices.filter((invoice) => {
     if (!['approved', 'partially_paid'].includes(invoice.status)) return false
     if (invoice.dueDate < from || invoice.dueDate > to) return false
+    if (!supplierTermMatches(supplierById(state, invoice.supplierId), terms, days)) return false
     return invoiceOutstanding(invoice) - lockedAmount(state, invoice.id) > 0
-  }), [state, from, to])
+  }), [state, from, to, terms, days])
 
   function toggle(invoice) {
     setPicked((current) => {
@@ -36,12 +40,23 @@ export function Payments() {
   }
 
   const visibleSchedules = state.schedules.filter((schedule) => user.role !== 'requester' || schedule.lines.some((line) => own.has(state.invoices.find((invoice) => invoice.id === line.invoiceId)?.requestId)))
-  const visiblePayments = state.payments.filter((payment) => user.role !== 'requester' || own.has(state.invoices.find((invoice) => invoice.id === payment.invoiceId)?.requestId))
+  const visiblePayments = state.payments
+    .filter((payment) => user.role !== 'requester' || own.has(state.invoices.find((invoice) => invoice.id === payment.invoiceId)?.requestId))
+    .filter((payment) => supplierTermMatches(supplierById(state, payment.supplierId), terms, days))
 
   return (
     <>
       <PageHead kicker="03 / Payments" title="Payments" lead="Collate invoices that fall due in a window, obtain authorisation, then record the bank confirmation and receipt." />
       <Notice>{PAYMENT_CONTROL}</Notice>
+      <div className="toolbar filter-grid">
+        <select value={terms} onChange={(event) => { setTerms(event.target.value); if (event.target.value !== 'days') setDays('') }} aria-label="Payment terms">
+          <option value="">All payment terms</option>
+          {PAYMENT_TERMS.map((term) => <option key={term.id} value={term.id}>{term.label}</option>)}
+        </select>
+        {terms === 'days' ? (
+          <input type="number" min="1" value={days} onChange={(event) => setDays(event.target.value)} placeholder="Number of days" aria-label="Number of days" />
+        ) : null}
+      </div>
       {finance ? (
         <form className="card card-pad stack" onSubmit={(event) => {
           event.preventDefault()
@@ -56,7 +71,7 @@ export function Payments() {
           {eligible.length ? (
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th></th><th>Invoice</th><th>Supplier</th><th>Due</th><th>Open</th><th>Schedule</th></tr></thead>
+                <thead><tr><th></th><th>Invoice</th><th>Supplier</th><th>Terms</th><th>Due</th><th>Open</th><th>Schedule</th></tr></thead>
                 <tbody>
                   {eligible.map((invoice) => {
                     const open = invoiceOutstanding(invoice) - lockedAmount(state, invoice.id)
@@ -65,6 +80,7 @@ export function Payments() {
                         <td><input type="checkbox" checked={Boolean(picked[invoice.id])} onChange={() => toggle(invoice)} aria-label={`Include ${invoice.reference}`} /></td>
                         <td data-label="Invoice"><a href={`#/invoices/${invoice.id}`}>{invoice.reference}</a></td>
                         <td data-label="Supplier">{supplierById(state, invoice.supplierId)?.name}</td>
+                        <td data-label="Terms">{paymentTermLabel(supplierById(state, invoice.supplierId))}</td>
                         <td data-label="Due">{formatDate(invoice.dueDate)}</td>
                         <td className="num" data-label="Open">{money(open)}</td>
                         <td data-label="Schedule">{picked[invoice.id] ? <input type="number" min="1" max={open} value={picked[invoice.id]} onChange={(event) => setPicked({ ...picked, [invoice.id]: event.target.value })} aria-label="Amount" /> : null}</td>

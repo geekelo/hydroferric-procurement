@@ -1,6 +1,7 @@
 import { monthKey, uid } from '../lib/format.js'
 import { approvalBlock, canApproveDocuments, canCommentOnRequest, canFileDocuments, canFileOnProject, canMarkMobilizationPaid, canResolveRequestComments, DOCUMENT_STEPS, mobilizationCloseBlock, stepLock } from './documents.js'
 import { createSeed } from './seed.js'
+import { PAYMENT_TERMS } from './filters.js'
 import {
   alreadyActed,
   applyDecision,
@@ -385,6 +386,7 @@ function normaliseRequest(payload) {
     department: payload.department || '',
     projectId: payload.projectId || '',
     urgency: payload.urgency || 'normal',
+    vessel: String(payload.vessel || '').trim(),
     justification: String(payload.justification || '').trim(),
     items: (payload.items || []).map((item) => ({
       id: item.id || uid('item'),
@@ -961,6 +963,8 @@ function saveSupplier(state, payload) {
     address: payload.address || '',
     taxId: payload.taxId || '',
     status: payload.status === 'inactive' ? 'inactive' : 'active',
+    paymentTerms: PAYMENT_TERMS.some((term) => term.id === payload.paymentTerms) ? payload.paymentTerms : '',
+    paymentDays: payload.paymentTerms === 'days' && Number(payload.paymentDays) > 0 ? Math.round(Number(payload.paymentDays)) : null,
   }
   if (payload.id) {
     const existing = state.suppliers.find((item) => item.id === payload.id)

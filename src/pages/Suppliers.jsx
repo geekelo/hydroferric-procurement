@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { PAYMENT_TERMS } from '../domain/filters.js'
 import { currentUser } from '../domain/selectors.js'
 import { useStore } from '../domain/store.jsx'
 import { disbursed, invoiceOutstanding } from '../domain/workflow.js'
 import { money } from '../lib/format.js'
 import { Badge, Empty, Field, Modal, PageHead } from '../components/ui.jsx'
 
-const EMPTY = { name: '', category: 'General', contactName: '', email: '', phone: '', address: '', taxId: '', status: 'active', documentName: '' }
+const EMPTY = { name: '', category: 'General', contactName: '', email: '', phone: '', address: '', taxId: '', status: 'active', paymentTerms: '', paymentDays: '', documentName: '' }
 
 export function Suppliers() {
   const { state } = useStore()
@@ -58,6 +59,17 @@ export function SupplierForm({ id }) {
               <option value="inactive">Inactive</option>
             </select>
           </Field>
+          <Field label="Payment terms">
+            <select value={form.paymentTerms || ''} onChange={set('paymentTerms')}>
+              <option value="">Not agreed</option>
+              {PAYMENT_TERMS.map((term) => <option key={term.id} value={term.id}>{term.label}</option>)}
+            </select>
+          </Field>
+          {form.paymentTerms === 'days' ? (
+            <Field label="Number of days" hint="Counted from the invoice date">
+              <input type="number" min="1" value={form.paymentDays || ''} onChange={set('paymentDays')} />
+            </Field>
+          ) : null}
           <Field label="Contact"><input value={form.contactName} onChange={set('contactName')} /></Field>
           <Field label="Email"><input type="email" value={form.email} onChange={set('email')} placeholder="Needed for payment notices" /></Field>
           <Field label="Phone"><input value={form.phone} onChange={set('phone')} /></Field>
